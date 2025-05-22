@@ -3,6 +3,7 @@
 import { useUser } from '@auth0/nextjs-auth0/client';
 import Link from 'next/link';
 import { useState } from 'react';
+import ProfileSection from '../components/ProfileSection'; // Import the new component
 
 export default function Dashboard() {
   const { user, error, isLoading } = useUser();
@@ -98,6 +99,9 @@ export default function Dashboard() {
             </Link>
           </div>
         </div>
+        
+        {/* Profile Section - Added here */}
+        <ProfileSection />
         
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
