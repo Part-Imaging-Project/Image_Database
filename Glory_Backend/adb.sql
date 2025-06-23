@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS images (
+  id SERIAL PRIMARY KEY,
+  filename TEXT NOT NULL,
+  blob_url TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
