@@ -9,9 +9,7 @@ const client = new Client({
   user: process.env.PG_USER,
   password: process.env.PG_PASSWORD,
   database: process.env.PG_DATABASE,
-  ssl: {
-       rejectUnauthorized: true
-  }
+  ssl: false //no need for ssl in local development
 });
 
 // Connect to database
@@ -21,7 +19,7 @@ const connectDB = async () => {
   if (!isConnected) {
     try {
       await client.connect();
-      console.log('Connected to Azure PostgreSQL!');
+      console.log('Connected to local PostgreSQL!');
       isConnected = true;
     } catch (err) {
       console.error('Connection error:', err);
