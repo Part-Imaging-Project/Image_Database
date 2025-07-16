@@ -14,4 +14,4 @@ const filePath = path.join(__dirname, 'test-images', fileName);
     console.error(`Upload failed: ${err.message}`);
   }
 })();
-// This script tests the upload functionality by uploading a local image file to Azure Blob Storage.
+// This script tests the upload functionality by uploading a local image file to minIO Blob Storage.
