@@ -15,12 +15,13 @@ const minioClient = new Client({
 });
 
 // Upload file to MinIO and save metadata
-async function uploadToMinIO(filePath, fileName) {
+async function uploadToMinIO(filePath, fileName, partId, cameraId) {
   try {
     await connectDB();
 
     const bucketName = process.env.MINIO_BUCKET;
     const contentType = mime.lookup(filePath) || 'application/octet-stream';
+    const fileSize = fs.statSync(filePath).size;
 
     // Make sure the bucket exists
     const exists = await minioClient.bucketExists(bucketName);
@@ -37,7 +38,23 @@ async function uploadToMinIO(filePath, fileName) {
     // Generate public URL (if configured)
     const objectUrl = `${process.env.MINIO_PUBLIC_URL}/${bucketName}/${fileName}`;
 
-    await saveToPostgres(fileName, objectUrl);
+    // Prepare metadata for PostgreSQL
+    const imageData = {
+      file_path: objectUrl,
+      file_name: fileName,
+      file_type: contentType,
+      image_size: fileSize,
+      captured_at: new Date().toISOString(),
+      bucket_name: bucketName,
+      part_id: partId,
+      camera_id: cameraId,
+      resolution: '1920x1080', // Example value; can be dynamic
+      capture_mode: 'Auto',     // Example value; can be dynamic
+      notes: 'Uploaded via Node.js watcher' // Example note
+    };
+
+    // Save to PostgreSQL
+    await saveToPostgres(imageData);
     console.log(`Saved metadata to DB.`);
 
     return objectUrl;
