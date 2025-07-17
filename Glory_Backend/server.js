@@ -56,7 +56,7 @@ app.get('/images/:id', async (req, res) => {
             LEFT JOIN camera c ON i.camera_id = c.id
             LEFT JOIN metadata m ON i.id = m.image_id
             WHERE i.id = $1
-            ORDER BY i.created_at DESC;
+             ORDER BY i.captured_at DESC;
         `;
         const result = await client.query(query, [id]);
 
@@ -114,27 +114,36 @@ app.post('/upload', async (req, res) => {
   }
 });
 
-// Update image metadata
+// server.js
+
 app.put('/images/:id', async (req, res) => {
-    const { id } = req.params;
-    const updatedFields = req.body;
+  const { id } = req.params;
+  let updatedFields = req.body;
 
-    // Ensure at least one field is provided
-    const keys = Object.keys(updatedFields);
-    if (keys.length === 0) {
-        return res.status(400).json({ error: 'No fields to update' });
-    }
+  // Ensure we have fields to update
+  if (!updatedFields || typeof updatedFields !== 'object' || Array.isArray(updatedFields)) {
+    return res.status(400).json({ error: 'Invalid update data' });
+  }
 
-    try {
-        const result = await updateImage(id, updatedFields);
-        if (!result) {
-            return res.status(404).json({ error: 'Image not found' });
-        }
-        res.json(result);
-    } catch (err) {
-        console.error('Update failed:', err.message);
-        res.status(500).json({ error: 'Failed to update image' });
+  // Remove any undefined values so they don't overwrite DB fields
+  updatedFields = Object.fromEntries(
+    Object.entries(updatedFields).filter(([_, value]) => value !== undefined)
+  );
+
+  if (Object.keys(updatedFields).length === 0) {
+    return res.status(400).json({ error: 'No valid fields to update' });
+  }
+
+  try {
+    const result = await updateImage(id, updatedFields);
+    if (!result) {
+      return res.status(404).json({ error: 'Image not found' });
     }
+    res.json(result);
+  } catch (err) {
+    console.error('Update failed:', err.message);
+    res.status(500).json({ error: 'Failed to update image' });
+  }
 });
 
 // Delete image by ID

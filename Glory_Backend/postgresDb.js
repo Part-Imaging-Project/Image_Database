@@ -87,19 +87,20 @@ const saveToPostgres = async (imageData) => {
 // Retrieve all images with metadata
 const getImages = async () => {
   try {
-    const query = `
-      SELECT 
-        i.id AS image_id,
-        i.file_path, i.file_name, i.file_type, i.image_size, i.captured_at, i.bucket_name,
-        p.part_name, p.part_number,
-        c.device_model, c.location, c.serial_number,
-        m.resolution, m.capture_mode, m.notes
-      FROM images i
-      LEFT JOIN parts p ON i.part_id = p.id
-      LEFT JOIN camera c ON i.camera_id = c.id
-      LEFT JOIN metadata m ON i.id = m.image_id
-      ORDER BY i.created_at DESC;
-    `;
+const query = `
+  SELECT 
+    i.id AS image_id,
+    i.file_path, i.file_name, i.file_type, i.image_size, i.captured_at, i.bucket_name,
+    p.part_name, p.part_number,
+    c.device_model, c.location, c.serial_number,
+    m.resolution, m.capture_mode, m.notes
+  FROM images i
+  LEFT JOIN parts p ON i.part_id = p.id
+  LEFT JOIN camera c ON i.camera_id = c.id
+  LEFT JOIN metadata m ON i.id = m.image_id
+  WHERE i.id = $1
+  ORDER BY i.captured_at DESC;
+`;
     const result = await client.query(query);
     return result.rows;
   } catch (err) {
