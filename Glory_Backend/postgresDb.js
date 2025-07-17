@@ -108,9 +108,44 @@ const getImages = async () => {
   }
 };
 
+const updateImage = async (id, fields) => {
+    const keys = Object.keys(fields).filter(key => fields[key] !== undefined);
+    if (keys.length === 0) return null;
+
+    const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(', ');
+    const values = keys.map(key => fields[key]);
+
+    try {
+        const query = `
+            UPDATE images
+            SET ${setClause}
+            WHERE id = $${values.length + 1}
+            RETURNING *
+        `;
+        const result = await client.query(query, [...values, id]);
+        return result.rows[0];
+    } catch (err) {
+        console.error('Error updating image:', err.message);
+        throw err;
+    }
+};
+
+const deleteImage = async (id) => {
+    try {
+        const query = 'DELETE FROM images WHERE id = $1 RETURNING *';
+        const result = await client.query(query, [id]);
+        return result.rows[0];
+    } catch (err) {
+        console.error('Error deleting image:', err.message);
+        throw err;
+    }
+};
+
 module.exports = {
    client, 
   connectDB,
   saveToPostgres,
-  getImages
+  getImages,
+  updateImage,
+  deleteImage
 };
