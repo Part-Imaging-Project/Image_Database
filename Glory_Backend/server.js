@@ -1,6 +1,7 @@
 // server.js
 const express = require('express');
-const { connectDB, saveToPostgres, getImages, deleteImage, updateImage } = require('./postgresDb');
+
+const { client, connectDB, saveToPostgres, getImages, deleteImage, updateImage } = require('./postgresDb');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
@@ -70,20 +71,47 @@ app.get('/images/:id', async (req, res) => {
     }
 });
 
-// Manual upload endpoint (for testing)
+// Image upload endpoint 
 app.post('/upload', async (req, res) => {
-    const { filename, blobUrl } = req.body;
-    if (!filename || !blobUrl) {
-        return res.status(400).json({ error: 'Missing required fields: filename or blobUrl' });
-    }
+  const {
+    file_name,
+    file_path,
+    file_type,
+    image_size,
+    captured_at,
+    bucket_name,
+    part_id,
+    camera_id,
+    resolution,
+    capture_mode,
+    notes
+  } = req.body;
 
-    try {
-        const saved = await saveToPostgres(filename, blobUrl);
-        res.status(201).json(saved);
-    } catch (err) {
-        console.error('Upload failed:', err.message);
-        res.status(500).json({ error: 'Failed to save image data' });
-    }
+  if (!file_name || !file_path) {
+    return res.status(400).json({ error: 'Missing required fields: file_name or file_path' });
+  }
+
+  try {
+    const imageData = {
+      file_path,
+      file_name,
+      file_type: file_type || 'application/octet-stream',
+      image_size: image_size || 0,
+      captured_at: captured_at || new Date().toISOString(),
+      bucket_name: bucket_name || process.env.MINIO_BUCKET,
+      part_id: part_id || null,
+      camera_id: camera_id || null,
+      resolution: resolution || '1920x1080',
+      capture_mode: capture_mode || 'Auto',
+      notes: notes || 'Manual upload'
+    };
+
+    const saved = await saveToPostgres(imageData);
+    res.status(201).json(saved);
+  } catch (err) {
+    console.error('Upload failed:', err.message);
+    res.status(500).json({ error: 'Failed to save image data' });
+  }
 });
 
 // Update image metadata
