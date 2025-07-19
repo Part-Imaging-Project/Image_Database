@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser } from '@auth0/nextjs-auth0/client';
+import { useUser, SignInButton, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
@@ -31,7 +31,7 @@ interface ImageType {
 }
 
 export default function Gallery() {
-  const { user, error, isLoading: authLoading } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
   const [activeView, setActiveView] = useState('grid');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -218,10 +218,10 @@ export default function Gallery() {
 
   // Load data on component mount
   useEffect(() => {
-    if (user) {
+    if (isSignedIn) {
       loadImages();
     }
-  }, [user]);
+  }, [isSignedIn]);
 
   // Filter images based on category and search query
   const filteredImages = images.filter(image => {
@@ -239,17 +239,23 @@ export default function Gallery() {
   const totalPages = Math.ceil(filteredImages.length / imagesPerPage);
 
   // Authentication loading state
-  if (authLoading) return (
+  if (!isLoaded) return (
     <div className="flex justify-center items-center min-h-screen">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
     </div>
   );
   
-  // Error state
-  if (error) return <div className="text-red-500 text-center mt-10">Error: {error.message}</div>;
-  
   // Unauthenticated state
-  if (!user) return <div className="text-center mt-10">Please log in to view this page.</div>;
+  if (!isSignedIn) return (
+    <div className="text-center mt-10 p-6 bg-white rounded-lg shadow">
+      <p className="mb-4">Please log in to view this page.</p>
+      <SignInButton mode="modal">
+        <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+          Log in
+        </button>
+      </SignInButton>
+    </div>
+  );
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -274,7 +280,7 @@ export default function Gallery() {
                   Upload
                 </Link>
                 <Link href="/settings" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                  Settings
+                
                 </Link>
               </div>
             </div>
@@ -283,17 +289,9 @@ export default function Gallery() {
                 <div className="relative ml-3">
                   <div className="flex items-center space-x-4">
                     <span className="text-gray-700">
-                      {user.name || user.email || 'User'}
+                      {user?.fullName || user?.emailAddresses[0]?.emailAddress || 'User'}
                     </span>
-                    <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-800 font-semibold">
-                      {(user.name?.charAt(0) || user.email?.charAt(0) || 'U').toUpperCase()}
-                    </div>
-                    <a
-                      href="/api/auth/logout"
-                      className="ml-2 px-3 py-1 text-sm text-gray-700 hover:text-gray-900"
-                    >
-                      Log out
-                    </a>
+                    <UserButton afterSignOutUrl="/" />
                   </div>
                 </div>
               </div>

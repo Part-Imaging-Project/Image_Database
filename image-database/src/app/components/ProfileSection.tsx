@@ -1,13 +1,13 @@
-// src/components/ProfileSection.tsx
+// src/app/components/ProfileSection.tsx
 'use client';
 
-import { useUser } from '@auth0/nextjs-auth0/client';
+import { useUser, SignInButton } from '@clerk/nextjs';
 import Link from 'next/link';
 
 export default function ProfileSection() {
-  const { user, isLoading } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
 
-  if (isLoading) {
+  if (!isLoaded) {
     return (
       <div className="bg-white shadow rounded-lg p-6 mb-6 animate-pulse">
         <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
@@ -18,16 +18,15 @@ export default function ProfileSection() {
     );
   }
 
-  if (!user) {
+  if (!isSignedIn) {
     return (
       <div className="bg-white shadow rounded-lg p-6 mb-6">
         <p className="text-gray-500">Please log in to view your profile information.</p>
-        <Link 
-          href="/api/auth/login"
-          className="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Log in
-        </Link>
+        <SignInButton mode="modal">
+          <button className="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            Log in
+          </button>
+        </SignInButton>
       </div>
     );
   }
@@ -36,16 +35,16 @@ export default function ProfileSection() {
     <div className="bg-white shadow rounded-lg p-6 mb-6">
       <div className="flex items-center">
         <div className="mr-4">
-          {user.picture ? (
+          {user.imageUrl ? (
             <img
-              src={user.picture}
-              alt={user.name || 'User'}
+              src={user.imageUrl}
+              alt={user.fullName || 'User'}
               className="h-16 w-16 rounded-full"
             />
           ) : (
             <div className="h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center">
               <span className="text-indigo-600 text-xl font-medium">
-                {user.name ? user.name.charAt(0).toUpperCase() : user.email ? user.email.charAt(0).toUpperCase() : 'U'}
+                {user.firstName ? user.firstName.charAt(0).toUpperCase() : user.emailAddresses[0]?.emailAddress.charAt(0).toUpperCase() || 'U'}
               </span>
             </div>
           )}
@@ -54,14 +53,14 @@ export default function ProfileSection() {
           <h2 className="text-xl font-bold text-gray-900">User Profile</h2>
           <div className="mt-2 space-y-2">
             <p className="text-sm text-gray-500">
-              <span className="font-medium text-gray-700">Name:</span> {user.name || 'Not provided'}
+              <span className="font-medium text-gray-700">Name:</span> {user.fullName || 'Not provided'}
             </p>
             <p className="text-sm text-gray-500">
-              <span className="font-medium text-gray-700">Email:</span> {user.email || 'Not provided'}
+              <span className="font-medium text-gray-700">Email:</span> {user.emailAddresses[0]?.emailAddress || 'Not provided'}
             </p>
-            {user.nickname && (
+            {user.username && (
               <p className="text-sm text-gray-500">
-                <span className="font-medium text-gray-700">Username:</span> {user.nickname}
+                <span className="font-medium text-gray-700">Username:</span> {user.username}
               </p>
             )}
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser } from '@auth0/nextjs-auth0/client';
+import { useUser, UserButton, SignInButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
@@ -27,7 +27,7 @@ interface Statistics {
 }
 
 export default function Dashboard() {
-  const { user, error, isLoading } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
   const [activeTab, setActiveTab] = useState('recent');
   const [images, setImages] = useState<ImageData[]>([]);
   const [statistics, setStatistics] = useState<Statistics>({
@@ -198,10 +198,10 @@ export default function Dashboard() {
 
   // Load data on component mount
   useEffect(() => {
-    if (user) {
+    if (isSignedIn) {
       loadDashboardData();
     }
-  }, [user]);
+  }, [isSignedIn]);
 
   // Filter images based on search term
   const filteredImages = images.filter((image: ImageData) =>
@@ -209,14 +209,22 @@ export default function Dashboard() {
     image.partNumber.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (isLoading) return (
+  if (!isLoaded) return (
     <div className="flex justify-center items-center min-h-screen">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
     </div>
   );
   
-  if (error) return <div className="text-red-500 text-center mt-10">Error: {error.message}</div>;
-  if (!user) return <div className="text-center mt-10">Please log in to view this page.</div>;
+  if (!isSignedIn) return (
+    <div className="text-center mt-10 p-6 bg-white rounded-lg shadow">
+      <p className="mb-4">Please log in to view this page.</p>
+      <SignInButton mode="modal">
+        <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+          Log in
+        </button>
+      </SignInButton>
+    </div>
+  );
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -241,7 +249,7 @@ export default function Dashboard() {
                   Upload
                 </Link>
                 <Link href="/settings" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                  Settings
+                
                 </Link>
               </div>
             </div>
@@ -250,17 +258,9 @@ export default function Dashboard() {
                 <div className="relative ml-3">
                   <div className="flex items-center space-x-4">
                     <span className="text-gray-700">
-                      {user.name || user.email || 'User'}
+                      {user?.fullName || user?.emailAddresses[0]?.emailAddress || 'User'}
                     </span>
-                    <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-800 font-semibold">
-                      {(user.name?.charAt(0) || user.email?.charAt(0) || 'U').toUpperCase()}
-                    </div>
-                    <a
-                      href="/api/auth/logout"
-                      className="ml-2 px-3 py-1 text-sm text-gray-700 hover:text-gray-900"
-                    >
-                      Log out
-                    </a>
+                    <UserButton afterSignOutUrl="/" />
                   </div>
                 </div>
               </div>
@@ -505,6 +505,171 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Quick Actions Section */}
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          <div className="px-4 py-5 sm:px-6 bg-gray-50">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Quick Actions</h3>
+            <p className="mt-1 text-sm text-gray-500">Common tasks and shortcuts</p>
+          </div>
+          <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Link
+                href="/upload"
+                className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors"
+              >
+                <div>
+                  <span className="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-700 ring-4 ring-white">
+                    <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                  </span>
+                </div>
+                <div className="mt-8">
+                  <h3 className="text-lg font-medium">
+                    <span className="absolute inset-0" aria-hidden="true" />
+                    Upload Images
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Add new part images to your database with metadata.
+                  </p>
+                </div>
+                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400" aria-hidden="true">
+                  <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20 4h1a1 1 0 00-1-1v1zm-1 12a1 1 0 102 0h-2zM8 3a1 1 0 000 2V3zM3.293 19.293a1 1 0 101.414 1.414l-1.414-1.414zM19 4v12h2V4h-2zm1-1H8v2h12V3zm-.707.293l-16 16 1.414 1.414 16-16-1.414-1.414z" />
+                  </svg>
+                </span>
+              </Link>
+
+              <Link
+                href="/gallery"
+                className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors"
+              >
+                <div>
+                  <span className="rounded-lg inline-flex p-3 bg-green-50 text-green-700 ring-4 ring-white">
+                    <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </span>
+                </div>
+                <div className="mt-8">
+                  <h3 className="text-lg font-medium">
+                    <span className="absolute inset-0" aria-hidden="true" />
+                    Browse Gallery
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-500">
+                    View and manage all your uploaded images in grid or list view.
+                  </p>
+                </div>
+                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400" aria-hidden="true">
+                  <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20 4h1a1 1 0 00-1-1v1zm-1 12a1 1 0 102 0h-2zM8 3a1 1 0 000 2V3zM3.293 19.293a1 1 0 101.414 1.414l-1.414-1.414zM19 4v12h2V4h-2zm1-1H8v2h12V3zm-.707.293l-16 16 1.414 1.414 16-16-1.414-1.414z" />
+                  </svg>
+                </span>
+              </Link>
+
+              <Link
+                href="/settings"
+                className="group relative bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-500 rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors"
+              >
+                <div>
+                  <span className="rounded-lg inline-flex p-3 bg-purple-50 text-purple-700 ring-4 ring-white">
+                    <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </span>
+                </div>
+                <div className="mt-8">
+                  <h3 className="text-lg font-medium">
+                    <span className="absolute inset-0" aria-hidden="true" />
+                    Account Settings
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Manage your profile, preferences, and account settings.
+                  </p>
+                </div>
+                <span className="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400" aria-hidden="true">
+                  <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20 4h1a1 1 0 00-1-1v1zm-1 12a1 1 0 102 0h-2zM8 3a1 1 0 000 2V3zM3.293 19.293a1 1 0 101.414 1.414l-1.414-1.414zM19 4v12h2V4h-2zm1-1H8v2h12V3zm-.707.293l-16 16 1.414 1.414 16-16-1.414-1.414z" />
+                  </svg>
+                </span>
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity Section */}
+        <div className="mt-8 bg-white shadow rounded-lg overflow-hidden">
+          <div className="px-4 py-5 sm:px-6 bg-gray-50">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Recent Activity</h3>
+            <p className="mt-1 text-sm text-gray-500">Latest system events and updates</p>
+          </div>
+          <div className="border-t border-gray-200">
+            <ul className="divide-y divide-gray-200">
+              <li className="px-4 py-4 sm:px-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                        <svg className="h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="ml-4">
+                      <div className="text-sm font-medium text-gray-900">System initialized</div>
+                      <div className="text-sm text-gray-500">Database connection established successfully</div>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    Just now
+                  </div>
+                </div>
+              </li>
+              <li className="px-4 py-4 sm:px-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                        <svg className="h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="ml-4">
+                      <div className="text-sm font-medium text-gray-900">User logged in</div>
+                      <div className="text-sm text-gray-500">{user?.fullName || user?.emailAddresses[0]?.emailAddress} accessed the dashboard</div>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {new Date().toLocaleTimeString()}
+                  </div>
+                </div>
+              </li>
+              <li className="px-4 py-4 sm:px-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-8 w-8 rounded-full bg-yellow-100 flex items-center justify-center">
+                        <svg className="h-4 w-4 text-yellow-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.99-.833-2.732 0L3.5 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="ml-4">
+                      <div className="text-sm font-medium text-gray-900">API Connection</div>
+                      <div className="text-sm text-gray-500">Attempting to connect to backend API at {API_BASE_URL}</div>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {new Date().toLocaleTimeString()}
+                  </div>
+                </div>
+              </li>
+            </ul>
           </div>
         </div>
       </main>
