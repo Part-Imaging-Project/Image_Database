@@ -4,12 +4,19 @@ import { useUser } from '@auth0/nextjs-auth0/client';
 import Link from 'next/link';
 import { useState, useRef } from 'react';
 
-// Interface for form values
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+
 interface UploadFormData {
   partNumber: string;
   partName: string;
   category: string;
   notes: string;
+}
+
+interface UploadResponse {
+  success: boolean;
+  message: string;
+  data?: any;
 }
 
 export default function Upload() {
@@ -19,9 +26,9 @@ export default function Upload() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Form state
   const [formData, setFormData] = useState<UploadFormData>({
     partNumber: '',
     partName: '',
@@ -29,7 +36,73 @@ export default function Upload() {
     notes: '',
   });
 
-  // Handle form input changes
+  const uploadToServer = async (file: File, metadata: UploadFormData): Promise<UploadResponse> => {
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('file', file);
+      
+      const fileUploadResponse = await fetch(`${API_BASE_URL}/upload-file`, {
+        method: 'POST',
+        body: formDataToSend,
+      });
+
+      if (!fileUploadResponse.ok) {
+        throw new Error(`File upload failed: ${fileUploadResponse.status}`);
+      }
+
+      const fileUploadResult = await fileUploadResponse.json();
+      
+      const imageData = {
+        file_name: file.name,
+        file_path: fileUploadResult.file_path || `/uploads/${file.name}`,
+        file_type: file.type,
+        image_size: file.size,
+        captured_at: new Date().toISOString(),
+        bucket_name: process.env.NEXT_PUBLIC_MINIO_BUCKET || 'images',
+        part_id: null,
+        camera_id: null,
+        resolution: '1920x1080',
+        capture_mode: 'Manual Upload',
+        notes: `${metadata.notes} | Part: ${metadata.partNumber} | Name: ${metadata.partName} | Category: ${metadata.category}`
+      };
+
+      const metadataResponse = await fetch(`${API_BASE_URL}/upload`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(imageData),
+      });
+
+      if (!metadataResponse.ok) {
+        throw new Error(`Metadata save failed: ${metadataResponse.status}`);
+      }
+
+      const metadataResult = await metadataResponse.json();
+      
+      return {
+        success: true,
+        message: 'Upload successful',
+        data: metadataResult
+      };
+    } catch (error) {
+      console.error('Upload error:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Upload failed'
+      };
+    }
+  };
+
+  const validatePartNumber = async (partNumber: string): Promise<boolean> => {
+    try {
+      return partNumber.trim().length > 0;
+    } catch (error) {
+      console.error('Part validation error:', error);
+      return false;
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData({
@@ -38,15 +111,19 @@ export default function Upload() {
     });
   };
 
-  // Handle file selection via input
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
-      setFiles(prev => [...prev, ...filesArray]);
+      const imageFiles = filesArray.filter(file => file.type.startsWith('image/'));
+      setFiles(prev => [...prev, ...imageFiles]);
+      
+      const nonImageFiles = filesArray.filter(file => !file.type.startsWith('image/'));
+      if (nonImageFiles.length > 0) {
+        setUploadError(`${nonImageFiles.length} non-image file(s) were skipped. Only image files are supported.`);
+      }
     }
   };
 
-  // Handle drag events
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -72,100 +149,134 @@ export default function Upload() {
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const filesArray = Array.from(e.dataTransfer.files);
-      // Only accept image files
       const imageFiles = filesArray.filter(file => file.type.startsWith('image/'));
       setFiles(prev => [...prev, ...imageFiles]);
+      
+      const nonImageFiles = filesArray.filter(file => !file.type.startsWith('image/'));
+      if (nonImageFiles.length > 0) {
+        setUploadError(`${nonImageFiles.length} non-image file(s) were skipped. Only image files are supported.`);
+      }
     }
   };
 
-  // Trigger file input click
   const triggerFileInput = () => {
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  // Remove file from list
   const removeFile = (index: number) => {
     setFiles(files.filter((_, i) => i !== index));
   };
 
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (files.length === 0) {
       setUploadError('Please select at least one file to upload.');
       return;
     }
 
+    if (!formData.partNumber.trim()) {
+      setUploadError('Part number is required.');
+      return;
+    }
+
+    const isValidPart = await validatePartNumber(formData.partNumber);
+    if (!isValidPart) {
+      setUploadError('Please enter a valid part number.');
+      return;
+    }
+
+    const oversizedFiles = files.filter(file => file.size > 10 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      setUploadError(`${oversizedFiles.length} file(s) exceed the 10MB size limit.`);
+      return;
+    }
+
     setUploadError(null);
     setUploadProgress(0);
+    setIsUploading(true);
     
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev === null) return 0;
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
+    try {
+      const totalFiles = files.length;
+      let successCount = 0;
+      let failCount = 0;
+      const errors: string[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadProgress(Math.round((i / totalFiles) * 100));
+        
+        const result = await uploadToServer(file, formData);
+        
+        if (result.success) {
+          successCount++;
+        } else {
+          failCount++;
+          errors.push(`${file.name}: ${result.message}`);
         }
-        return prev + 5;
-      });
-    }, 200);
+      }
 
-    // Simulate upload completion after a delay
-    setTimeout(() => {
-      clearInterval(interval);
       setUploadProgress(100);
-      setUploadSuccess(true);
       
-      // Reset form after successful upload
-      setTimeout(() => {
-        setFiles([]);
-        setFormData({
-          partNumber: '',
-          partName: '',
-          category: 'general',
-          notes: '',
-        });
-        setUploadProgress(null);
-        setUploadSuccess(false);
-      }, 3000);
-    }, 3000);
-
-    // In a real application, you would upload the files to your API here
-    // const formDataToSend = new FormData();
-    // files.forEach(file => formDataToSend.append('files', file));
-    // formDataToSend.append('metadata', JSON.stringify(formData));
-    // const response = await fetch('/api/upload', {
-    //   method: 'POST',
-    //   body: formDataToSend,
-    // });
-    // Handle the API response accordingly
+      if (successCount === totalFiles) {
+        setUploadSuccess(true);
+        
+        setTimeout(() => {
+          setFiles([]);
+          setFormData({
+            partNumber: '',
+            partName: '',
+            category: 'general',
+            notes: '',
+          });
+          setUploadProgress(null);
+          setUploadSuccess(false);
+          setIsUploading(false);
+        }, 3000);
+      } else {
+        setUploadError(`${successCount} of ${totalFiles} files uploaded successfully. ${failCount} failed: ${errors.join(', ')}`);
+        setIsUploading(false);
+      }
+    } catch (error) {
+      console.error('Upload process error:', error);
+      setUploadError('An unexpected error occurred during upload. Please try again.');
+      setUploadProgress(null);
+      setIsUploading(false);
+    }
   };
 
-  // Loading state
-  if (isLoading) return (
-    <div className="flex justify-center items-center min-h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-    </div>
-  );
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
   
-  // Error state
-  if (error) return <div className="text-red-500 text-center mt-10">Error: {error.message}</div>;
+  if (error) {
+    return (
+      <div className="text-red-500 text-center mt-10">
+        Error: {error.message}
+      </div>
+    );
+  }
   
-  // Unauthenticated state
-  if (!user) return <div className="text-center mt-10 p-6 bg-white rounded-lg shadow">
-    <p className="mb-4">Please log in to upload images.</p>
-    <Link
-      href="/api/auth/login?returnTo=/upload"
-      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-    >
-      Log in
-    </Link>
-  </div>;
+  if (!user) {
+    return (
+      <div className="text-center mt-10 p-6 bg-white rounded-lg shadow">
+        <p className="mb-4">Please log in to upload images.</p>
+        <Link
+          href="/api/auth/login?returnTo=/upload"
+          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+        >
+          Log in
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Navigation */}
       <nav className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -220,14 +331,20 @@ export default function Upload() {
             <h1 className="text-2xl font-bold text-gray-900">Upload Images</h1>
             <p className="mt-1 text-sm text-gray-500">Add new part images to the database with metadata.</p>
           </div>
+          <div className="mt-4 md:mt-0">
+            <Link
+              href="/gallery"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              View Gallery
+            </Link>
+          </div>
         </div>
         
-        {/* Upload Form */}
         <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
           <div className="px-4 py-5 sm:p-6">
             <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                {/* Part Number field */}
                 <div className="sm:col-span-3">
                   <label htmlFor="partNumber" className="block text-sm font-medium text-gray-700">
                     Part Number *
@@ -240,13 +357,13 @@ export default function Upload() {
                       required
                       value={formData.partNumber}
                       onChange={handleInputChange}
-                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      disabled={isUploading}
+                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md disabled:bg-gray-100"
                       placeholder="e.g., A7562"
                     />
                   </div>
                 </div>
 
-                {/* Part Name field */}
                 <div className="sm:col-span-3">
                   <label htmlFor="partName" className="block text-sm font-medium text-gray-700">
                     Part Name
@@ -258,13 +375,13 @@ export default function Upload() {
                       id="partName"
                       value={formData.partName}
                       onChange={handleInputChange}
-                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      disabled={isUploading}
+                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md disabled:bg-gray-100"
                       placeholder="e.g., Hydraulic Valve"
                     />
                   </div>
                 </div>
 
-                {/* Category dropdown */}
                 <div className="sm:col-span-3">
                   <label htmlFor="category" className="block text-sm font-medium text-gray-700">
                     Category
@@ -275,7 +392,8 @@ export default function Upload() {
                       name="category"
                       value={formData.category}
                       onChange={handleInputChange}
-                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      disabled={isUploading}
+                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md disabled:bg-gray-100"
                     >
                       <option value="general">General</option>
                       <option value="a-series">A-Series Parts</option>
@@ -286,7 +404,6 @@ export default function Upload() {
                   </div>
                 </div>
 
-                {/* Notes field */}
                 <div className="sm:col-span-6">
                   <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
                     Notes
@@ -298,13 +415,13 @@ export default function Upload() {
                       rows={3}
                       value={formData.notes}
                       onChange={handleInputChange}
-                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      disabled={isUploading}
+                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md disabled:bg-gray-100"
                       placeholder="Additional information about these images"
                     />
                   </div>
                 </div>
 
-                {/* File Upload Area */}
                 <div className="sm:col-span-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Upload Images *
@@ -312,7 +429,7 @@ export default function Upload() {
                   <div 
                     className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md ${
                       isDragging ? 'border-indigo-400 bg-indigo-50' : 'border-gray-300'
-                    }`}
+                    } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
                     onDragEnter={handleDragEnter}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
@@ -348,17 +465,17 @@ export default function Upload() {
                             accept="image/*"
                             className="sr-only"
                             onChange={handleFileSelect}
+                            disabled={isUploading}
                           />
                         </label>
                         <p className="pl-1">or drag and drop</p>
                       </div>
-                      <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB each</p>
+                      <p className="text-xs text-gray-500">PNG, JPG, GIF, WEBP up to 10MB each</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Selected Files Preview */}
               {files.length > 0 && (
                 <div className="mt-6 border rounded-md overflow-hidden">
                   <div className="bg-gray-50 px-4 py-3 border-b">
@@ -383,7 +500,8 @@ export default function Upload() {
                         <button
                           type="button"
                           onClick={() => removeFile(index)}
-                          className="ml-2 text-gray-400 hover:text-gray-500"
+                          disabled={isUploading}
+                          className="ml-2 text-gray-400 hover:text-gray-500 disabled:opacity-50"
                         >
                           <span className="sr-only">Remove file</span>
                           <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -396,14 +514,24 @@ export default function Upload() {
                 </div>
               )}
 
-              {/* Upload error message */}
               {uploadError && (
-                <div className="mt-4 text-sm text-red-600">
-                  {uploadError}
+                <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-red-800">Upload Error</h3>
+                      <div className="mt-2 text-sm text-red-700">
+                        <p>{uploadError}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* Upload progress */}
               {uploadProgress !== null && (
                 <div className="mt-6">
                   <div className="relative pt-1">
@@ -429,14 +557,24 @@ export default function Upload() {
                 </div>
               )}
 
-              {/* Upload success message */}
               {uploadSuccess && (
-                <div className="mt-4 text-sm text-green-600 bg-green-50 p-3 rounded-md">
-                  Your files have been uploaded successfully!
+                <div className="mt-4 bg-green-50 border border-green-200 rounded-md p-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-green-800">Upload Successful</h3>
+                      <div className="mt-2 text-sm text-green-700">
+                        <p>Your files have been uploaded successfully! They will appear in the gallery shortly.</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* Submit Button */}
               <div className="mt-6 flex justify-end">
                 <Link
                   href="/dashboard"
@@ -446,21 +584,20 @@ export default function Upload() {
                 </Link>
                 <button
                   type="submit"
-                  disabled={uploadProgress !== null}
+                  disabled={isUploading || files.length === 0}
                   className={`inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
-                    uploadProgress !== null
+                    isUploading || files.length === 0
                       ? 'bg-indigo-400 cursor-not-allowed'
                       : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
                   }`}
                 >
-                  {uploadProgress !== null ? 'Uploading...' : 'Upload Files'}
+                  {isUploading ? 'Uploading...' : 'Upload Files'}
                 </button>
               </div>
             </form>
           </div>
         </div>
         
-        {/* Upload Guidelines Card */}
         <div className="bg-white shadow rounded-lg overflow-hidden mb-8">
           <div className="px-4 py-5 sm:px-6 bg-gray-50">
             <h3 className="text-lg leading-6 font-medium text-gray-900">Upload Guidelines</h3>
@@ -514,7 +651,17 @@ export default function Upload() {
                   </svg>
                 </div>
                 <p className="ml-2 text-sm text-gray-600">
-                  Images will be automatically processed after upload.
+                  Images will be automatically processed and stored in MinIO after upload.
+                </p>
+              </div>
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <p className="ml-2 text-sm text-gray-600">
+                  Upload progress will be shown in real-time for each file.
                 </p>
               </div>
             </div>

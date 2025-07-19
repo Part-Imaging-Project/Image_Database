@@ -2,27 +2,212 @@
 
 import { useUser } from '@auth0/nextjs-auth0/client';
 import Link from 'next/link';
-import { useState } from 'react';
-import ProfileSection from '../components/ProfileSection'; // Import the new component
+import { useState, useEffect } from 'react';
+
+// API configuration
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+
+// Type definitions
+interface ImageData {
+  id: number;
+  name: string;
+  partNumber: string;
+  uploadDate: string;
+  size: string;
+  status: string;
+  file_path: string;
+  file_type: string;
+}
+
+interface Statistics {
+  totalImages: number;
+  totalSize: string;
+  lastUpload: string;
+  processingQueue: number;
+}
 
 export default function Dashboard() {
   const { user, error, isLoading } = useUser();
   const [activeTab, setActiveTab] = useState('recent');
-  
-  // Mock data for demonstration (will be replaced with API calls)
-  const recentImages = [
-    { id: 1, name: 'Part_A7562.jpg', partNumber: 'A7562', uploadDate: '2025-05-18', size: '2.4 MB', status: 'Processed' },
-    { id: 2, name: 'Part_B9821.jpg', partNumber: 'B9821', uploadDate: '2025-05-17', size: '1.8 MB', status: 'Processing' },
-    { id: 3, name: 'Part_C3345.jpg', partNumber: 'C3345', uploadDate: '2025-05-16', size: '3.1 MB', status: 'Processed' },
-    { id: 4, name: 'Part_D1122.jpg', partNumber: 'D1122', uploadDate: '2025-05-15', size: '1.9 MB', status: 'Failed' },
-  ];
-  
-  const statistics = {
-    totalImages: 157,
-    totalSize: '478 MB',
-    lastUpload: 'Today at 10:23 AM',
-    processingQueue: 3
+  const [images, setImages] = useState<ImageData[]>([]);
+  const [statistics, setStatistics] = useState<Statistics>({
+    totalImages: 0,
+    totalSize: '0 MB',
+    lastUpload: 'No uploads yet',
+    processingQueue: 0
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  // API Functions
+  const fetchAllImages = async (): Promise<any[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/images`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching images:', error);
+      setApiError('Failed to fetch images');
+      return [];
+    }
   };
+
+  const fetchImageById = async (id: number): Promise<any | null> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/images/${id}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching image:', error);
+      return null;
+    }
+  };
+
+  const deleteImageById = async (id: number): Promise<any | null> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/images/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      setApiError('Failed to delete image');
+      return null;
+    }
+  };
+
+  const updateImageById = async (id: number, updateData: any): Promise<any | null> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/images/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error updating image:', error);
+      setApiError('Failed to update image');
+      return null;
+    }
+  };
+
+  // Calculate statistics from images data
+  const calculateStatistics = (imagesData: any[]): Statistics => {
+    if (!imagesData || imagesData.length === 0) {
+      return {
+        totalImages: 0,
+        totalSize: '0 MB',
+        lastUpload: 'No uploads yet',
+        processingQueue: 0
+      };
+    }
+
+    const totalImages = imagesData.length;
+    const totalSizeBytes = imagesData.reduce((acc: number, img: any) => acc + (img.image_size || 0), 0);
+    const totalSizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(1);
+    
+    // Sort by captured_at to get the most recent
+    const sortedImages = imagesData.sort((a: any, b: any) => new Date(b.captured_at).getTime() - new Date(a.captured_at).getTime());
+    const lastUpload = sortedImages.length > 0 
+      ? new Date(sortedImages[0].captured_at).toLocaleString()
+      : 'No uploads yet';
+    
+    // Count processing queue (this would need a status field in your DB)
+    const processingQueue = imagesData.filter((img: any) => img.status === 'Processing').length;
+
+    return {
+      totalImages,
+      totalSize: `${totalSizeMB} MB`,
+      lastUpload,
+      processingQueue
+    };
+  };
+
+  // Format images for display
+  const formatImagesForDisplay = (imagesData: any[]): ImageData[] => {
+    return imagesData.map((img: any) => ({
+      id: img.image_id || img.id,
+      name: img.file_name,
+      partNumber: img.part_name || 'N/A',
+      uploadDate: new Date(img.captured_at).toLocaleDateString(),
+      size: img.image_size ? `${(img.image_size / (1024 * 1024)).toFixed(1)} MB` : 'Unknown',
+      status: img.status || 'Processed', // You may need to add this field to your DB
+      file_path: img.file_path,
+      file_type: img.file_type
+    }));
+  };
+
+  // Handle image deletion
+  const handleDeleteImage = async (imageId: number): Promise<void> => {
+    if (window.confirm('Are you sure you want to delete this image?')) {
+      const result = await deleteImageById(imageId);
+      if (result) {
+        // Refresh the images list
+        loadDashboardData();
+      }
+    }
+  };
+
+  // Handle image viewing
+  const handleViewImage = async (imageId: number): Promise<void> => {
+    const imageDetails = await fetchImageById(imageId);
+    if (imageDetails) {
+      // You can implement a modal or navigate to a detail page
+      console.log('Image details:', imageDetails);
+      // For now, just log the details. You might want to show a modal or navigate to a detail page
+      alert(`Image Details:\nFile: ${imageDetails.file_name}\nType: ${imageDetails.file_type}\nSize: ${imageDetails.image_size} bytes`);
+    }
+  };
+
+  // Load dashboard data
+  const loadDashboardData = async (): Promise<void> => {
+    setLoading(true);
+    setApiError(null);
+    
+    try {
+      const imagesData = await fetchAllImages();
+      const formattedImages = formatImagesForDisplay(imagesData);
+      const stats = calculateStatistics(imagesData);
+      
+      setImages(formattedImages);
+      setStatistics(stats);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      setApiError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user]);
+
+  // Filter images based on search term
+  const filteredImages = images.filter((image: ImageData) =>
+    image.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    image.partNumber.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (isLoading) return (
     <div className="flex justify-center items-center min-h-screen">
@@ -90,7 +275,13 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold text-gray-900">Image Database Dashboard</h1>
             <p className="mt-1 text-sm text-gray-500">Manage your part images in one centralized location.</p>
           </div>
-          <div className="mt-4 md:mt-0">
+          <div className="mt-4 md:mt-0 flex space-x-3">
+            <button
+              onClick={loadDashboardData}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Refresh
+            </button>
             <Link 
               href="/upload"
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -100,8 +291,21 @@ export default function Dashboard() {
           </div>
         </div>
         
-        {/* Profile Section - Added here */}
-        <ProfileSection />
+        {/* API Error Display */}
+        {apiError && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">
+                  API Error
+                </h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{apiError}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -120,7 +324,7 @@ export default function Dashboard() {
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <dt className="text-sm font-medium text-gray-500 truncate">Last Upload</dt>
-              <dd className="mt-1 text-3xl font-semibold text-gray-900">{statistics.lastUpload}</dd>
+              <dd className="mt-1 text-xl font-semibold text-gray-900">{statistics.lastUpload}</dd>
             </div>
           </div>
           <div className="bg-white overflow-hidden shadow rounded-lg">
@@ -167,14 +371,19 @@ export default function Dashboard() {
           </nav>
         </div>
 
-        {/* Recent Images Table */}
+        {/* Images Table */}
         <div className="bg-white shadow overflow-hidden sm:rounded-md mb-8">
           <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
-            <h2 className="text-lg leading-6 font-medium text-gray-900">Recent Images</h2>
+            <h2 className="text-lg leading-6 font-medium text-gray-900">
+              {activeTab === 'recent' ? 'Recent Images' : 
+               activeTab === 'favorites' ? 'Favorite Images' : 'Pending Images'}
+            </h2>
             <div className="relative">
               <input
                 type="text"
                 placeholder="Search images..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="border rounded-md py-2 pl-10 pr-4 block w-full text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -185,79 +394,99 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="border-t border-gray-200">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Preview
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      File Name
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Part Number
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Upload Date
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Size
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {recentImages.length === 0 ? (
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
                     <tr>
-                      <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
-                        No images found. Start uploading to build your collection.
-                      </td>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Preview
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        File Name
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Part Number
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Upload Date
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Size
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
-                  ) : (
-                    recentImages.map((image) => (
-                      <tr key={image.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="h-10 w-10 bg-gray-200 rounded"></div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {image.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {image.partNumber}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {image.uploadDate}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {image.size}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            ${image.status === 'Processed' ? 'bg-green-100 text-green-800' : 
-                              image.status === 'Processing' ? 'bg-yellow-100 text-yellow-800' : 
-                              'bg-red-100 text-red-800'}`}>
-                            {image.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex space-x-2">
-                            <button className="text-indigo-600 hover:text-indigo-900">View</button>
-                            <button className="text-gray-600 hover:text-gray-900">Download</button>
-                            <button className="text-red-600 hover:text-red-900">Delete</button>
-                          </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredImages.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                          {searchTerm ? 'No images found matching your search.' : 'No images found. Start uploading to build your collection.'}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      filteredImages.map((image: ImageData) => (
+                        <tr key={image.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center">
+                              <span className="text-xs text-gray-500">IMG</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {image.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {image.partNumber}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {image.uploadDate}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {image.size}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                              ${image.status === 'Processed' ? 'bg-green-100 text-green-800' : 
+                                image.status === 'Processing' ? 'bg-yellow-100 text-yellow-800' : 
+                                'bg-red-100 text-red-800'}`}>
+                              {image.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex space-x-2">
+                              <button 
+                                onClick={() => handleViewImage(image.id)}
+                                className="text-indigo-600 hover:text-indigo-900"
+                              >
+                                View
+                              </button>
+                              <button className="text-gray-600 hover:text-gray-900">
+                                Download
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteImage(image.id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
             <div className="px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
               <div className="flex-1 flex justify-between sm:hidden">
                 <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
@@ -270,28 +499,9 @@ export default function Dashboard() {
               <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-gray-700">
-                    Showing <span className="font-medium">1</span> to <span className="font-medium">4</span> of{' '}
-                    <span className="font-medium">4</span> results
+                    Showing <span className="font-medium">1</span> to <span className="font-medium">{filteredImages.length}</span> of{' '}
+                    <span className="font-medium">{filteredImages.length}</span> results
                   </p>
-                </div>
-                <div>
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    <button className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                      <span className="sr-only">Previous</span>
-                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                    <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-indigo-600 hover:bg-gray-50">
-                      1
-                    </button>
-                    <button className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                      <span className="sr-only">Next</span>
-                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg " viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </nav>
                 </div>
               </div>
             </div>

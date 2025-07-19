@@ -8,20 +8,11 @@ import { useState } from 'react';
 interface UserSettings {
   displayName: string;
   email: string;
-  notificationEmail: string;
   profileImage: string | null;
-  language: string;
-  theme: string;
-  emailNotifications: {
-    uploads: boolean;
-    comments: boolean;
-    system: boolean;
-  };
 }
 
 export default function Settings() {
   const { user, error, isLoading } = useUser();
-  const [activeTab, setActiveTab] = useState('profile');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   
@@ -29,15 +20,7 @@ export default function Settings() {
   const [settings, setSettings] = useState<UserSettings>({
     displayName: '',
     email: '',
-    notificationEmail: '',
     profileImage: null,
-    language: 'en',
-    theme: 'light',
-    emailNotifications: {
-      uploads: true,
-      comments: true,
-      system: true,
-    }
   });
 
   // Update settings state with user data once loaded
@@ -46,32 +29,17 @@ export default function Settings() {
       ...settings,
       displayName: user.name || '',
       email: user.email || '',
-      notificationEmail: user.email || '',
       profileImage: user.picture || null,
     });
   }
 
   // Handle input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    
-    if (type === 'checkbox') {
-      const checkbox = e.target as HTMLInputElement;
-      const notificationKey = name.split('.')[1]; // Extract the key from format "emailNotifications.key"
-      
-      setSettings({
-        ...settings,
-        emailNotifications: {
-          ...settings.emailNotifications,
-          [notificationKey]: checkbox.checked
-        }
-      });
-    } else {
-      setSettings({
-        ...settings,
-        [name]: value
-      });
-    }
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setSettings({
+      ...settings,
+      [name]: value
+    });
   };
 
   // Handle settings save
@@ -187,320 +155,67 @@ export default function Settings() {
         </div>
         
         <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-          {/* Settings Navigation Tabs */}
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 px-6" aria-label="Tabs">
-              <button
-                onClick={() => setActiveTab('profile')}
-                className={`${
-                  activeTab === 'profile'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-              >
-                Profile
-              </button>
-              <button
-                onClick={() => setActiveTab('notifications')}
-                className={`${
-                  activeTab === 'notifications'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-              >
-                Notifications
-              </button>
-              <button
-                onClick={() => setActiveTab('preferences')}
-                className={`${
-                  activeTab === 'preferences'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-              >
-                Preferences
-              </button>
-              <button
-                onClick={() => setActiveTab('security')}
-                className={`${
-                  activeTab === 'security'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-              >
-                Security
-              </button>
-            </nav>
-          </div>
-          
           {/* Settings Forms */}
           <div className="px-4 py-5 sm:p-6">
             <form onSubmit={handleSaveSettings}>
               {/* Profile Settings */}
-              <div className={activeTab === 'profile' ? 'block' : 'hidden'}>
-                <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                  {/* Profile Image */}
-                  <div className="sm:col-span-6">
-                    <div className="flex items-center">
-                      <div className="mr-4">
-                        {settings.profileImage ? (
-                          <img 
-                            src={settings.profileImage}
-                            alt={settings.displayName || 'User'}
-                            className="h-16 w-16 rounded-full"
-                          />
-                        ) : (
-                          <div className="h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center">
-                            <span className="text-indigo-600 text-xl font-medium">
-                              {settings.displayName ? settings.displayName.charAt(0).toUpperCase() : 'U'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <button
-                          type="button"
-                          className="ml-5 bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                          Change
-                        </button>
-                        {settings.profileImage && (
-                          <button
-                            type="button"
-                            className="ml-3 bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            onClick={() => setSettings({ ...settings, profileImage: null })}
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Display Name */}
-                  <div className="sm:col-span-3">
-                    <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
-                      Display Name
-                    </label>
-                    <div className="mt-1">
-                      <input
-                        type="text"
-                        name="displayName"
-                        id="displayName"
-                        value={settings.displayName}
-                        onChange={handleInputChange}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Email - Disabled/Read Only */}
-                  <div className="sm:col-span-3">
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                      Email Address
-                    </label>
-                    <div className="mt-1">
-                      <input
-                        type="email"
-                        name="email"
-                        id="email"
-                        value={settings.email}
-                        disabled
-                        className="bg-gray-50 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md cursor-not-allowed"
-                      />
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Email is managed through your Auth0 account settings.
-                    </p>
-                  </div>
-
-                  {/* Notification Email */}
-                  <div className="sm:col-span-3">
-                    <label htmlFor="notificationEmail" className="block text-sm font-medium text-gray-700">
-                      Notification Email
-                    </label>
-                    <div className="mt-1">
-                      <input
-                        type="email"
-                        name="notificationEmail"
-                        id="notificationEmail"
-                        value={settings.notificationEmail}
-                        onChange={handleInputChange}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                      />
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Where we'll send notifications if different from your login email.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Notification Settings */}
-              <div className={activeTab === 'notifications' ? 'block' : 'hidden'}>
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">Email Notifications</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Choose what information you want to receive via email.
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-start">
-                      <div className="flex items-center h-5">
-                        <input
-                          id="emailNotifications.uploads"
-                          name="emailNotifications.uploads"
-                          type="checkbox"
-                          checked={settings.emailNotifications.uploads}
-                          onChange={handleInputChange}
-                          className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+              <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                {/* Profile Image */}
+                <div className="sm:col-span-6">
+                  <div className="flex items-center">
+                    <div className="mr-4">
+                      {settings.profileImage ? (
+                        <img 
+                          src={settings.profileImage}
+                          alt={settings.displayName || 'User'}
+                          className="h-16 w-16 rounded-full"
                         />
-                      </div>
-                      <div className="ml-3 text-sm">
-                        <label htmlFor="emailNotifications.uploads" className="font-medium text-gray-700">
-                          Image Upload Notifications
-                        </label>
-                        <p className="text-gray-500">
-                          Get notified when image processing is complete or fails.
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-start">
-                      <div className="flex items-center h-5">
-                        <input
-                          id="emailNotifications.comments"
-                          name="emailNotifications.comments"
-                          type="checkbox"
-                          checked={settings.emailNotifications.comments}
-                          onChange={handleInputChange}
-                          className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                        />
-                      </div>
-                      <div className="ml-3 text-sm">
-                        <label htmlFor="emailNotifications.comments" className="font-medium text-gray-700">
-                          Comments and Mentions
-                        </label>
-                        <p className="text-gray-500">
-                          Receive notifications when someone comments on or mentions your uploads.
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-start">
-                      <div className="flex items-center h-5">
-                        <input
-                          id="emailNotifications.system"
-                          name="emailNotifications.system"
-                          type="checkbox"
-                          checked={settings.emailNotifications.system}
-                          onChange={handleInputChange}
-                          className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                        />
-                      </div>
-                      <div className="ml-3 text-sm">
-                        <label htmlFor="emailNotifications.system" className="font-medium text-gray-700">
-                          System Notifications
-                        </label>
-                        <p className="text-gray-500">
-                          Important announcements and system updates.
-                        </p>
-                      </div>
+                      ) : (
+                        <div className="h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center">
+                          <span className="text-indigo-600 text-xl font-medium">
+                            {settings.displayName ? settings.displayName.charAt(0).toUpperCase() : 'U'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              </div>
-              
-              {/* Preferences Settings */}
-              <div className={activeTab === 'preferences' ? 'block' : 'hidden'}>
-                <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                  {/* Language Preference */}
-                  <div className="sm:col-span-3">
-                    <label htmlFor="language" className="block text-sm font-medium text-gray-700">
-                      Language
-                    </label>
-                    <div className="mt-1">
-                      <select
-                        id="language"
-                        name="language"
-                        value={settings.language}
-                        onChange={handleInputChange}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                      >
-                        <option value="en">English</option>
-                        <option value="es">Español</option>
-                        <option value="fr">Français</option>
-                        <option value="de">Deutsch</option>
-                        <option value="zh">中文</option>
-                      </select>
-                    </div>
-                  </div>
-                  
-                  {/* Theme Selection */}
-                  <div className="sm:col-span-3">
-                    <label htmlFor="theme" className="block text-sm font-medium text-gray-700">
-                      Theme
-                    </label>
-                    <div className="mt-1">
-                      <select
-                        id="theme"
-                        name="theme"
-                        value={settings.theme}
-                        onChange={handleInputChange}
-                        className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                      >
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                        <option value="system">System Default</option>
-                      </select>
-                    </div>
+
+                {/* Display Name */}
+                <div className="sm:col-span-3">
+                  <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
+                    Display Name
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      type="text"
+                      name="displayName"
+                      id="displayName"
+                      value={settings.displayName}
+                      onChange={handleInputChange}
+                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    />
                   </div>
                 </div>
-              </div>
-              
-              {/* Security Settings */}
-              <div className={activeTab === 'security' ? 'block' : 'hidden'}>
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">Account Security</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Manage your password and account security settings.
-                    </p>
+
+                {/* Email - Disabled/Read Only */}
+                <div className="sm:col-span-3">
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                    Email Address
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      type="email"
+                      name="email"
+                      id="email"
+                      value={settings.email}
+                      disabled
+                      className="bg-gray-50 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md cursor-not-allowed"
+                    />
                   </div>
-                  
-                  <div className="border-t border-gray-200 pt-5">
-                    <h3 className="text-sm font-medium text-gray-700">Change Password</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Password management is handled through Auth0.
-                    </p>
-                    <div className="mt-3">
-                      <a
-                        href="https://manage.auth0.com/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      >
-                        Go to Auth0 Dashboard
-                      </a>
-                    </div>
-                  </div>
-                  
-                  <div className="border-t border-gray-200 pt-5">
-                    <h3 className="text-sm font-medium text-gray-700">Account Activity</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      View recent login activity and active sessions.
-                    </p>
-                    <div className="mt-3">
-                      <button
-                        type="button"
-                        className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      >
-                        View Activity Log
-                      </button>
-                    </div>
-                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Email is managed through your Auth0 account settings.
+                  </p>
                 </div>
               </div>
               
@@ -534,15 +249,7 @@ export default function Settings() {
                     setSettings({
                       displayName: user.name || '',
                       email: user.email || '',
-                      notificationEmail: user.email || '',
                       profileImage: user.picture || null,
-                      language: 'en',
-                      theme: 'light',
-                      emailNotifications: {
-                        uploads: true,
-                        comments: true,
-                        system: true,
-                      }
                     });
                   }}
                 >
