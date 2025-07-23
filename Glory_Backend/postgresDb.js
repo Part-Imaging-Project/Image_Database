@@ -98,7 +98,6 @@ const query = `
   LEFT JOIN parts p ON i.part_id = p.id
   LEFT JOIN camera c ON i.camera_id = c.id
   LEFT JOIN metadata m ON i.id = m.image_id
-  WHERE i.id = $1
   ORDER BY i.captured_at DESC;
 `;
     const result = await client.query(query);
