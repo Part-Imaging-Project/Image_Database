@@ -4,6 +4,16 @@ const express = require('express');
 const { client, connectDB, saveToPostgres, getImages, deleteImage, updateImage } = require('./postgresDb');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const { Client: MinioClient } = require('minio'); // Add MinIO import
+
+// MinIO client setup
+const minioClient = new MinioClient({
+  endPoint: process.env.MINIO_ENDPOINT || 'localhost',
+  port: parseInt(process.env.MINIO_PORT) || 9000,
+  useSSL: false,
+  accessKey: process.env.MINIO_ACCESS_KEY,
+  secretKey: process.env.MINIO_SECRET_KEY,
+});
 
 const app = express();
 const port = process.env.SERVER_PORT || 8000;
@@ -29,7 +39,7 @@ app.get('/image', (req, res) => {
     res.json(imageData);
 });
 
-// Retrieve all images
+// Place all specific /images routes BEFORE the generic /images/:id route
 app.get('/images', async (req, res) => {
     try {
         const images = await getImages();
@@ -40,7 +50,38 @@ app.get('/images', async (req, res) => {
     }
 });
 
-// Retrieve image by ID
+// Move these above /images/:id
+app.get('/images/stats', async (req, res) => {
+  try {
+    const count = await client.query('SELECT COUNT(*) FROM images'); // Correct table name
+    const recent = await client.query('SELECT * FROM images ORDER BY captured_at DESC LIMIT 5');
+    res.json({
+      total_images: parseInt(count.rows[0].count),
+      recent_uploads: recent.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.get('/images/download/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await client.query('SELECT * FROM images WHERE id = $1', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Image not found' });
+    const { bucket_name, file_name } = result.rows[0]; // Use file_name as object key
+    const stream = await minioClient.getObject(bucket_name, file_name);
+    stream.on('error', err => {
+      console.error('MinIO stream error:', err);
+      res.status(500).json({ error: err && err.message ? err.message : 'Error streaming file from MinIO' });
+    });
+    stream.pipe(res);
+  } catch (err) {
+    console.error('Download error:', err);
+    res.status(500).json({ error: err && err.message ? err.message : 'Unknown error during download' });
+  }
+});
+
+// Place this route AFTER all specific /images routes
 app.get('/images/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -59,11 +100,9 @@ app.get('/images/:id', async (req, res) => {
              ORDER BY i.captured_at DESC;
         `;
         const result = await client.query(query, [id]);
-
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Image not found' });
         }
-
         res.json(result.rows[0]);
     } catch (err) {
         console.error('Error fetching image:', err.message);
@@ -161,6 +200,53 @@ app.delete('/images/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete image' });
     }
 });
+// Validate part numbers during upload
+app.get('/parts/:partNumber', async (req, res) => {
+  const { partNumber } = req.params;
+  try {
+    const result = await client.query('SELECT * FROM parts WHERE part_number = $1', [partNumber]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ exists: false });
+    }
+    res.json({ exists: true, part: result.rows[0] });
+  } catch (err) {
+    console.error('Error validating part:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// List available categories (assume category field exists in parts table)
+app.get('/categories', async (req, res) => {
+  try {
+    const result = await client.query('SELECT DISTINCT category FROM parts'); // Correct table name
+    res.json(result.rows.map(r => r.category).filter(Boolean));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// Delete multiple images at once
+app.post('/images/batch-delete', async (req, res) => {
+  const { ids } = req.body; // array of IDs
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  try {
+    const result = await client.query('SELECT * FROM images WHERE id = ANY($1)', [ids]);
+    // Delete from MinIO
+    for (let row of result.rows) {
+      await minioClient.removeObject(row.bucket_name, row.file_name); // Use file_name as object key
+    }
+    // Delete from Database
+    await client.query('DELETE FROM images WHERE id = ANY($1)', [ids]);
+    res.json({ message: 'Images deleted successfully', count: result.rows.length });
+  } catch (err) {
+    console.error('Batch delete error:', err);
+    res.status(500).json({ error: err && err.message ? err.message : 'Unknown error during batch delete' });
+  }
+});
+
+
+
+
+
 
 // Start server
 connectDB().then(() => {
