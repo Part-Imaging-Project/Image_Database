@@ -1,7 +1,7 @@
 // server.js
 const express = require('express');
 
-const { client, connectDB, saveToPostgres, getImages, deleteImage, updateImage } = require('./postgresDb');
+const { client, connectDB, saveToPostgres, getImages, deleteImage, updateImage, getImagesByPartNumber } = require('./postgresDb');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { Client: MinioClient } = require('minio'); // Add MinIO import
@@ -39,16 +39,26 @@ app.get('/image', (req, res) => {
     res.json(imageData);
 });
 
-// Place all specific /images routes BEFORE the generic /images/:id route
+// Combined route: GET /images (all images) or GET /images?part_number=XYZ123 (filtered by part number)
 app.get('/images', async (req, res) => {
     try {
-        const images = await getImages();
-        res.json(images);
+        const partNumber = req.query.part_number;
+        
+        if (partNumber) {
+            // If part_number query parameter is provided, filter by part number
+            const images = await getImagesByPartNumber(partNumber);
+            res.json(images);
+        } else {
+            // If no query parameters, return all images
+            const images = await getImages();
+            res.json(images);
+        }
     } catch (err) {
         console.error('Error fetching images:', err.message);
         res.status(500).json({ error: 'Failed to fetch images' });
     }
 });
+
 
 // Move these above /images/:id
 app.get('/images/stats', async (req, res) => {
