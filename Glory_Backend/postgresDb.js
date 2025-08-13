@@ -108,6 +108,32 @@ const query = `
   }
 };
 
+const getImagesByPartNumber = async (partNumber) => {
+  try {
+    const query = `
+      SELECT 
+        i.id AS image_id,
+        i.file_path, i.file_name, i.file_type, i.image_size, i.captured_at, i.bucket_name,
+        p.part_name, p.part_number,
+        c.device_model, c.location, c.serial_number,
+        m.resolution, m.capture_mode, m.notes
+      FROM images i
+      LEFT JOIN parts p ON i.part_id = p.id
+      LEFT JOIN camera c ON i.camera_id = c.id
+      LEFT JOIN metadata m ON i.id = m.image_id
+      WHERE p.part_number = $1
+      ORDER BY i.captured_at DESC;
+    `;
+
+    const result = await client.query(query, [partNumber]);
+    return result.rows;
+  } catch (err) {
+    console.error('Query error:', err);
+    return [];
+  }
+};
+
+
 const updateImage = async (id, fields) => {
     const keys = Object.keys(fields).filter(key => fields[key] !== undefined);
     if (keys.length === 0) return null;
@@ -146,6 +172,7 @@ module.exports = {
   connectDB,
   saveToPostgres,
   getImages,
+  getImagesByPartNumber,
   updateImage,
   deleteImage
 };
