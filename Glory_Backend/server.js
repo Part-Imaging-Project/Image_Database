@@ -43,15 +43,29 @@ app.get('/image', (req, res) => {
 app.get('/images', async (req, res) => {
     try {
         const partNumber = req.query.part_number;
-        
+
         if (partNumber) {
             // If part_number query parameter is provided, filter by part number
             const images = await getImagesByPartNumber(partNumber);
-            res.json(images);
+            
+            // Normalize bucket names for all images
+            const normalizedImages = images.map(img => ({
+                ...img,
+                bucket_name: img.bucket_name.replace(/_/g, '-')  // Replace underscore with hyphen
+            }));
+            
+            res.json(normalizedImages);
         } else {
             // If no query parameters, return all images
             const images = await getImages();
-            res.json(images);
+            
+            // Normalize bucket names for all images
+            const normalizedImages = images.map(img => ({
+                ...img,
+                bucket_name: img.bucket_name.replace(/_/g, '-')
+            }));
+            
+            res.json(normalizedImages);
         }
     } catch (err) {
         console.error('Error fetching images:', err.message);
