@@ -86,11 +86,36 @@ async function startWatcher() {
       ignored: /(^|[\/\\])\../, // ignore dotfiles
       persistent: true,
       awaitWriteFinish: true,
+      depth: 2 // allow folder detection one level deep
     });
 
+    // Handle single image file addition
     watcher.on('add', async (filePath) => {
-      const fileName = path.basename(filePath);
-      await processFile(filePath, fileName);
+      // If file is directly in WATCH_FOLDER, treat as single image
+      const parentDir = path.dirname(filePath);
+      if (parentDir === path.resolve(WATCH_FOLDER)) {
+        const fileName = path.basename(filePath);
+        await processFile(filePath, fileName);
+      } else {
+        // If file is inside a folder, treat folder name as part number
+        const partNumber = path.basename(parentDir);
+        const fileName = path.basename(filePath);
+        await processFile(filePath, fileName, partNumber);
+      }
+    });
+
+    // Handle new folder addition (batch upload)
+    watcher.on('addDir', async (folderPath) => {
+      const partNumber = path.basename(folderPath);
+      fs.readdir(folderPath, async (err, files) => {
+        if (err) return;
+        for (const file of files) {
+          const imagePath = path.join(folderPath, file);
+          if (fs.statSync(imagePath).isFile()) {
+            await processFile(imagePath, file, partNumber);
+          }
+        }
+      });
     });
 
     console.log('✅ Watcher started successfully.');

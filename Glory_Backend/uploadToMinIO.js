@@ -15,7 +15,8 @@ const minioClient = new Client({
 });
 
 // Upload file to MinIO and save metadata
-async function uploadToMinIO(filePath, fileName, partId, cameraId) {
+// Accepts filePath, fileName, and optionally partNumber (from folder)
+async function uploadToMinIO(filePath, fileName, partNumber = null, cameraId = null) {
   try {
     await connectDB();
 
@@ -39,6 +40,16 @@ async function uploadToMinIO(filePath, fileName, partId, cameraId) {
     const objectUrl = `${process.env.MINIO_PUBLIC_URL}/${bucketName}/${fileName}`;
 
     // Prepare metadata for PostgreSQL
+    // If partNumber is provided, look up part_id from DB
+    let part_id = null;
+    if (partNumber) {
+      const partRes = await connectDB().then(async () => {
+        return await require('./postgresDb').client.query('SELECT id FROM parts WHERE part_number = $1', [partNumber]);
+      });
+      if (partRes && partRes.rows.length > 0) {
+        part_id = partRes.rows[0].id;
+      }
+    }
     const imageData = {
       file_path: objectUrl,
       file_name: fileName,
@@ -46,7 +57,7 @@ async function uploadToMinIO(filePath, fileName, partId, cameraId) {
       image_size: fileSize,
       captured_at: new Date().toISOString(),
       bucket_name: bucketName,
-      part_id: partId,
+      part_id: part_id,
       camera_id: cameraId,
       resolution: '1920x1080', // Example value; can be dynamic
       capture_mode: 'Auto',     // Example value; can be dynamic
