@@ -1,8 +1,10 @@
+// src/app/page.tsx
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { useUser, SignInButton } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 
 // Add inline styles to ensure styling works regardless of Tailwind configuration
 const styles = {
@@ -37,6 +39,32 @@ const styles = {
 
 const HeroSection: React.FC = () => {
   const { isLoaded, isSignedIn, user } = useUser();
+  const router = useRouter();
+
+  // Auto-redirect authenticated users to dashboard
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user) {
+      router.push('/dashboard');
+    }
+  }, [isLoaded, isSignedIn, user, router]);
+
+  // Don't render the homepage content if user is signed in (they'll be redirected)
+  if (isLoaded && isSignedIn) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Redirecting to dashboard...</div>
+          <div style={{ width: '3rem', height: '3rem', border: '3px solid #f3f3f3', borderTop: '3px solid #0078D4', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
+        </div>
+        <style jsx>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -60,21 +88,15 @@ const HeroSection: React.FC = () => {
             <Link href="/upload" style={{ color: 'white', marginRight: '1.5rem', textDecoration: 'none' }}>
               Upload
             </Link>
-            <Link href="/settings" style={{ color: 'white', marginRight: '1.5rem', textDecoration: 'none' }}>
-            
-            </Link>
             
             {!isLoaded ? (
               <div style={{ height: '2.5rem', width: '7rem', backgroundColor: '#4B5563', borderRadius: '0.375rem' }}></div>
-            ) : isSignedIn ? (
-              <Link
-                href="/dashboard"
-                style={{ backgroundColor: '#0078D4', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', textDecoration: 'none' }}
-              >
-                My Dashboard
-              </Link>
             ) : (
-              <SignInButton mode="modal">
+              <SignInButton 
+                mode="modal"
+                forceRedirectUrl="/dashboard"
+                signUpForceRedirectUrl="/dashboard"
+              >
                 <button style={{ backgroundColor: '#0078D4', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}>
                   Sign In
                 </button>
@@ -95,20 +117,15 @@ const HeroSection: React.FC = () => {
               Streamline your part imaging workflow with our robust system. Store, organize, and retrieve images with comprehensive metadata for ERP integration and AI processing.
             </p>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              {isSignedIn ? (
-                <Link 
-                  href="/dashboard"
-                  style={{ backgroundColor: '#0078D4', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', textDecoration: 'none', fontWeight: '500', display: 'inline-block' }}
-                >
-                  Go to Dashboard
-                </Link>
-              ) : (
-                <SignInButton mode="modal">
-                  <button style={{ backgroundColor: '#0078D4', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', textDecoration: 'none', fontWeight: '500', display: 'inline-block', border: 'none', cursor: 'pointer' }}>
-                    Get Started
-                  </button>
-                </SignInButton>
-              )}
+              <SignInButton 
+                mode="modal"
+                forceRedirectUrl="/dashboard"
+                signUpForceRedirectUrl="/dashboard"
+              >
+                <button style={{ backgroundColor: '#0078D4', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', textDecoration: 'none', fontWeight: '500', display: 'inline-block', border: 'none', cursor: 'pointer' }}>
+                  Get Started
+                </button>
+              </SignInButton>
               <a 
                 href="/demo" 
                 style={{ backgroundColor: 'white', color: '#0078D4', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', textDecoration: 'none', fontWeight: '500', display: 'inline-block', border: '1px solid #0078D4' }}
@@ -225,26 +242,6 @@ const HeroSection: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* User greeting section for signed-in users */}
-      {isSignedIn && user && (
-        <div style={{ backgroundColor: '#EBF8FF', padding: '2rem 1rem' }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1A365D', marginBottom: '1rem' }}>
-              Welcome back, {user.firstName || user.fullName || 'User'}!
-            </h3>
-            <p style={{ color: '#2D3748', marginBottom: '1.5rem' }}>
-              Ready to manage your image database? Access your dashboard to view recent uploads and statistics.
-            </p>
-            <Link
-              href="/dashboard"
-              style={{ backgroundColor: '#0078D4', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', textDecoration: 'none', fontWeight: '500', display: 'inline-block' }}
-            >
-              Go to Dashboard
-            </Link>
-          </div>
-        </div>
-      )}
     </>
   );
 };
