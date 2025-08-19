@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 
 // API configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const MINIO_BASE_URL = process.env.NEXT_PUBLIC_MINIO_URL || 'http://localhost:9000';
 
 // Define image type interface
 interface ImageType {
@@ -20,6 +21,9 @@ interface ImageType {
   file_type: string;
   image_size: number;
   captured_at: string;
+  bucket_name: string;
+  imageUrl: string; // Add this field
+  thumbnailUrl: string; // Add this field
   metadata: {
     dimensions: string;
     camera: string;
@@ -50,6 +54,18 @@ export default function Gallery() {
     { id: 'partsC', name: 'C-Series Parts' },
     { id: 'rejected', name: 'Rejected Parts' }
   ];
+
+  // Helper function to generate MinIO URL
+  const generateMinIOUrl = (bucketName: string, fileName: string): string => {
+    // Clean bucket name (replace underscores with hyphens if needed)
+    const cleanBucket = bucketName.replace(/_/g, '-');
+    return `${MINIO_BASE_URL}/${cleanBucket}/${fileName}`;
+  };
+
+  // Helper function to generate image URL using the download endpoint
+  const generateImageUrl = (imageId: number): string => {
+    return `${API_BASE_URL}/images/download/${imageId}`;
+  };
 
   // API Functions
   const fetchAllImages = async () => {
@@ -122,27 +138,37 @@ export default function Gallery() {
 
   // Format images for display
   const formatImagesForDisplay = (imagesData: any[]): ImageType[] => {
-    return imagesData.map(img => ({
-      id: img.image_id || img.id,
-      name: img.file_name,
-      partNumber: img.part_name || `PART-${img.id}`,
-      category: determineCategoryFromPartName(img.part_name),
-      uploadDate: new Date(img.captured_at).toLocaleDateString(),
-      size: img.image_size ? `${(img.image_size / (1024 * 1024)).toFixed(1)} MB` : 'Unknown',
-      status: determineStatus(img),
-      file_path: img.file_path,
-      file_type: img.file_type,
-      image_size: img.image_size,
-      captured_at: img.captured_at,
-      metadata: {
-        dimensions: img.resolution || '1920x1080',
-        camera: img.device_model || 'Unknown Camera',
-        operator: img.serial_number || 'System',
-        resolution: img.resolution,
-        capture_mode: img.capture_mode,
-        notes: img.notes
-      }
-    }));
+    return imagesData.map(img => {
+      const imageId = img.image_id || img.id;
+      const bucketName = img.bucket_name || 'default-bucket';
+      const fileName = img.file_name;
+      
+      return {
+        id: imageId,
+        name: fileName,
+        partNumber: img.part_number || img.part_name || `PART-${imageId}`,
+        category: determineCategoryFromPartName(img.part_name || img.part_number),
+        uploadDate: new Date(img.captured_at).toLocaleDateString(),
+        size: img.image_size ? `${(img.image_size / (1024 * 1024)).toFixed(1)} MB` : 'Unknown',
+        status: determineStatus(img),
+        file_path: img.file_path,
+        file_type: img.file_type,
+        image_size: img.image_size,
+        captured_at: img.captured_at,
+        bucket_name: bucketName,
+        // Generate image URLs
+        imageUrl: generateImageUrl(imageId),
+        thumbnailUrl: generateImageUrl(imageId), // Use same URL for now
+        metadata: {
+          dimensions: img.resolution || '1920x1080',
+          camera: img.device_model || 'Unknown Camera',
+          operator: img.serial_number || 'System',
+          resolution: img.resolution,
+          capture_mode: img.capture_mode,
+          notes: img.notes
+        }
+      };
+    });
   };
 
   // Helper function to determine category from part name
@@ -457,10 +483,19 @@ export default function Gallery() {
                 onClick={() => handleImageClick(image.id)}
               >
                 <div className="relative pb-[75%] bg-gray-200">
-                  <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                    <div className="bg-gray-300 flex items-center justify-center w-full h-full">
-                      <span className="text-gray-500 text-sm">{image.partNumber}</span>
-                    </div>
+                  <img 
+                    src={image.thumbnailUrl}
+                    alt={image.name}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback if image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                  <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-300 hidden">
+                    <span className="text-gray-500 text-sm">{image.partNumber}</span>
                   </div>
                   <div className="absolute top-2 right-2">
                     <span className={`px-2 py-1 text-xs font-bold rounded-full
@@ -491,8 +526,21 @@ export default function Gallery() {
                     <div className="px-4 py-4 sm:px-6">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                          <div className="bg-gray-200 h-12 w-12 flex items-center justify-center mr-4">
-                            <span className="text-gray-500 text-xs">{image.partNumber.slice(-4)}</span>
+                          <div className="h-12 w-12 mr-4 flex-shrink-0">
+                            <img 
+                              src={image.thumbnailUrl}
+                              alt={image.name}
+                              className="h-12 w-12 object-cover rounded"
+                              onError={(e) => {
+                                // Fallback if image fails to load
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                            <div className="hidden bg-gray-200 h-12 w-12 flex items-center justify-center rounded">
+                              <span className="text-gray-500 text-xs">{image.partNumber.slice(-4)}</span>
+                            </div>
                           </div>
                           <div>
                             <p className="text-sm font-medium text-indigo-600 truncate">{image.name}</p>
@@ -618,7 +666,18 @@ export default function Gallery() {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-gray-100 rounded-lg flex items-center justify-center min-h-[300px]">
-                          <div className="text-center">
+                          <img 
+                            src={selectedImage.imageUrl}
+                            alt={selectedImage.name}
+                            className="max-w-full max-h-full object-contain rounded"
+                            onError={(e) => {
+                              // Fallback if image fails to load
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              target.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                          <div className="hidden text-center">
                             <div className="text-gray-500 mb-2">Image Preview</div>
                             <div className="text-sm text-gray-400">
                               {selectedImage.name}
@@ -656,6 +715,9 @@ export default function Gallery() {
                               
                               <div className="text-gray-500">File Type:</div>
                               <div>{selectedImage.file_type}</div>
+                              
+                              <div className="text-gray-500">Bucket:</div>
+                              <div>{selectedImage.bucket_name}</div>
                             </div>
                           </div>
 
@@ -692,7 +754,7 @@ export default function Gallery() {
                             <div className="flex flex-wrap gap-2">
                               <button 
                                 onClick={() => {
-                                  window.open(`${API_BASE_URL}/download/${selectedImage.id}`, '_blank');
+                                  window.open(selectedImage.imageUrl, '_blank');
                                 }}
                                 className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                               >
