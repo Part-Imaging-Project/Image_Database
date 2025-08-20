@@ -1,10 +1,11 @@
 // server.js
 const express = require('express');
-
+const app = express();
 const { client, connectDB, saveToPostgres, getImages, deleteImage, updateImage, getImagesByPartNumber } = require('./postgresDb');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { Client: MinioClient } = require('minio'); // Add MinIO import
+const port = process.env.SERVER_PORT || 8000;
 
 // MinIO client setup
 const minioClient = new MinioClient({
@@ -15,8 +16,8 @@ const minioClient = new MinioClient({
   secretKey: process.env.MINIO_SECRET_KEY,
 });
 
-const app = express();
-const port = process.env.SERVER_PORT || 8000;
+
+
 
 // Middleware setup
 app.use(cors());
@@ -73,6 +74,35 @@ app.get('/images', async (req, res) => {
     }
 });
 
+// ...existing code...
+// --- Batch folder upload endpoint ---
+// Accepts a folder path and uploads all images inside, using folder name as part number
+app.post('/upload-folder', async (req, res) => {
+  const { folder_path } = req.body;
+  if (!folder_path) {
+    return res.status(400).json({ error: 'Missing required field: folder_path' });
+  }
+  const fs = require('fs');
+  const path = require('path');
+  const { uploadToMinIO } = require('./uploadToMinIO');
+  try {
+    const partNumber = path.basename(folder_path);
+    const files = fs.readdirSync(folder_path);
+    let results = [];
+    for (const file of files) {
+      const imagePath = path.join(folder_path, file);
+      if (fs.statSync(imagePath).isFile()) {
+        // Upload each image, passing partNumber
+        const objectUrl = await uploadToMinIO(imagePath, file, partNumber);
+        results.push({ file, objectUrl });
+      }
+    }
+    res.json({ uploaded: results, partNumber });
+  } catch (err) {
+    console.error('Batch upload failed:', err.message);
+    res.status(500).json({ error: 'Batch upload failed' });
+  }
+});
 
 // Move these above /images/:id
 app.get('/images/stats', async (req, res) => {

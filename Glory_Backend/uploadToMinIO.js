@@ -15,7 +15,8 @@ const minioClient = new Client({
 });
 
 // Upload file to MinIO and save metadata
-async function uploadToMinIO(filePath, fileName, partId, cameraId) {
+// Accepts filePath, fileName, and optionally partNumber (from folder)
+async function uploadToMinIO(filePath, fileName, partNumber = null, cameraId = null) {
   try {
     await connectDB();
 
@@ -39,6 +40,25 @@ async function uploadToMinIO(filePath, fileName, partId, cameraId) {
     const objectUrl = `${process.env.MINIO_PUBLIC_URL}/${bucketName}/${fileName}`;
 
     // Prepare metadata for PostgreSQL
+    // If partNumber is provided, look up part_id from DB
+    let part_id = null;
+    if (partNumber) {
+      // Check if part exists
+      const partRes = await connectDB().then(async () => {
+        return await require('./postgresDb').client.query('SELECT id FROM parts WHERE part_number = $1', [partNumber]);
+      });
+      if (partRes && partRes.rows.length > 0) {
+        part_id = partRes.rows[0].id;
+      } else {
+        // Create new part entry with default values
+        const insertPartRes = await require('./postgresDb').client.query(
+          'INSERT INTO parts (part_name, part_number, description, category, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING id',
+          [partNumber, partNumber, 'Auto-created by watcher', 'Uncategorized']
+        );
+        part_id = insertPartRes.rows[0].id;
+        console.log(`Created new part entry for part number: ${partNumber}`);
+      }
+    }
     const imageData = {
       file_path: objectUrl,
       file_name: fileName,
@@ -46,7 +66,7 @@ async function uploadToMinIO(filePath, fileName, partId, cameraId) {
       image_size: fileSize,
       captured_at: new Date().toISOString(),
       bucket_name: bucketName,
-      part_id: partId,
+      part_id: part_id,
       camera_id: cameraId,
       resolution: '1920x1080', // Example value; can be dynamic
       capture_mode: 'Auto',     // Example value; can be dynamic
