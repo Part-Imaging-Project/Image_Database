@@ -1,4 +1,4 @@
-// src/app/dashboard/page.tsx - Fixed Download Version
+// src/app/dashboard/page.tsx - Fixed Part Number Display
 'use client';
 
 import { useUser, SignInButton } from '@clerk/nextjs';
@@ -44,13 +44,75 @@ export default function Dashboard() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      console.log('Fetched images:', data);
-      return data;
+      console.log('Raw API response:', data);
+      
+      // Process and format the data properly
+      const processedData = data.map((item: any) => {
+        console.log('Processing item:', item);
+        
+        // Extract part number from multiple possible fields
+        const partNumber = item.part_number || 
+                          item.partNumber || 
+                          item.part_name || 
+                          item.partName || 
+                          extractPartNumberFromNotes(item.notes) ||
+                          `PART-${item.image_id || item.id}`;
+        
+        // Extract part name
+        const partName = item.part_name || 
+                        item.partName || 
+                        item.part_number || 
+                        item.partNumber ||
+                        'Unknown Part';
+        
+        const processedItem = {
+          image_id: item.image_id || item.id,
+          file_name: item.file_name || item.filename,
+          file_path: item.file_path,
+          file_type: item.file_type || 'image/jpeg',
+          image_size: item.image_size || 0,
+          captured_at: item.captured_at || new Date().toISOString(),
+          bucket_name: item.bucket_name || 'images',
+          part_name: partName,
+          part_number: partNumber,
+          device_model: item.device_model || 'Unknown Camera',
+          location: item.location || 'Unknown Location',
+          serial_number: item.serial_number || 'Unknown Serial',
+          resolution: item.resolution || '1920x1080',
+          capture_mode: item.capture_mode || 'Auto',
+          notes: item.notes || ''
+        };
+        
+        console.log('Processed item with part number:', processedItem.part_number);
+        return processedItem;
+      });
+      
+      console.log('Processed images with part numbers:', processedData);
+      return processedData;
     } catch (error) {
       console.error('Error fetching images:', error);
       setApiError(`Failed to fetch images: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return [];
     }
+  };
+
+  // Helper function to extract part number from notes field
+  const extractPartNumberFromNotes = (notes: string): string | null => {
+    if (!notes) return null;
+    
+    // Look for patterns like "Part: ABC123" in notes
+    const partMatch = notes.match(/Part:\s*([A-Za-z0-9\-_]+)/i);
+    if (partMatch) {
+      return partMatch[1];
+    }
+    
+    // Look for patterns like "PN: ABC123" or "P/N: ABC123"
+    const pnMatch = notes.match(/P\/?N:\s*([A-Za-z0-9\-_]+)/i);
+    if (pnMatch) {
+      return pnMatch[1];
+    }
+    
+    return null;
   };
 
   const fetchImageById = async (id: number): Promise<ImageData | null> => {
@@ -60,6 +122,7 @@ export default function Dashboard() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
+      console.log('Single image data:', data);
       return data;
     } catch (error) {
       console.error('Error fetching image:', error);
@@ -247,12 +310,15 @@ export default function Dashboard() {
     }
   }, [isSignedIn]);
 
-  // Data processing
-  const filteredImages = images.filter((image: ImageData) =>
-    image.file_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (image.part_number && image.part_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (image.part_name && image.part_name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Data processing with improved part number handling
+  const filteredImages = images.filter((image: ImageData) => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      image.file_name.toLowerCase().includes(searchLower) ||
+      (image.part_number && image.part_number.toLowerCase().includes(searchLower)) ||
+      (image.part_name && image.part_name.toLowerCase().includes(searchLower))
+    );
+  });
 
   // Get images for current tab
   const getTabImages = () => {

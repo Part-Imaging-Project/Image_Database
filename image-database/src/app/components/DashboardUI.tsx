@@ -1,4 +1,4 @@
-// src/app/components/DashboardUI.tsx - Fixed Download Version
+// src/app/components/DashboardUI.tsx - Fixed Part Number Display
 'use client';
 
 import Link from 'next/link';
@@ -29,6 +29,40 @@ export interface Statistics {
   lastUpload: string;
   processingQueue: number;
 }
+
+// Helper function to get display part number
+const getDisplayPartNumber = (image: ImageData): string => {
+  // Priority order: part_number -> part_name -> extract from notes -> fallback
+  if (image.part_number && image.part_number.trim() !== '') {
+    return image.part_number.trim();
+  }
+  
+  if (image.part_name && image.part_name.trim() !== '') {
+    return image.part_name.trim();
+  }
+  
+  // Try to extract from notes
+  if (image.notes) {
+    const partMatch = image.notes.match(/Part:\s*([A-Za-z0-9\-_]+)/i);
+    if (partMatch) {
+      return partMatch[1];
+    }
+    
+    const pnMatch = image.notes.match(/P\/?N:\s*([A-Za-z0-9\-_]+)/i);
+    if (pnMatch) {
+      return pnMatch[1];
+    }
+  }
+  
+  // Fallback
+  return `PART-${image.image_id}`;
+};
+
+// Helper function to check if part number is available
+const hasValidPartNumber = (image: ImageData): boolean => {
+  return !!(image.part_number || image.part_name || 
+           (image.notes && (image.notes.includes('Part:') || image.notes.includes('P/N:') || image.notes.includes('PN:'))));
+};
 
 interface DashboardUIProps {
   user: any;
@@ -349,9 +383,23 @@ export const ImagesTable = ({
                       <div className="text-sm text-gray-500">{image.file_type}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {image.part_number || image.part_name || 'N/A'}
+                      <div className="flex items-center">
+                        <div className="text-sm text-gray-900 font-medium">
+                          {getDisplayPartNumber(image)}
+                        </div>
+                        {hasValidPartNumber(image) && (
+                          <div className="ml-2">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                              ✓
+                            </span>
+                          </div>
+                        )}
                       </div>
+                      {image.part_name && image.part_name !== image.part_number && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {image.part_name}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(image.captured_at).toLocaleDateString('en-US', {
