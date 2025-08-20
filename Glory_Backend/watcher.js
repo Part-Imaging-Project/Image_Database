@@ -18,7 +18,8 @@ const uploadedSet = new Set();
  * @param {string} filePath - Path to the file.
  * @param {string} fileName - Name of the file.
  */
-async function processFile(filePath, fileName) {
+// Accepts optional partNumber for folder uploads
+async function processFile(filePath, fileName, partNumber = null) {
   try {
     // Skip if already processed
     if (uploadedSet.has(fileName)) {
@@ -34,16 +35,15 @@ async function processFile(filePath, fileName) {
 
     if (checkResult.rowCount > 0) {
       console.log(`🟠 Duplicate detected: Skipping ${fileName}`);
-
-      // Optional: Delete local duplicate file immediately
-      fs.unlinkSync(filePath);
-      console.log(`🗑️ Deleted duplicate file: ${filePath}`);
+      // fs.unlinkSync(filePath); // Commented out: Do not delete duplicate file
+      // console.log(`🗑️ Deleted duplicate file: ${filePath}`);
       uploadedSet.add(fileName);
       return;
     }
 
     // Upload to MinIO
-    const objectUrl = await uploadToMinIO(filePath, fileName);
+  // Pass partNumber if available
+  const objectUrl = await uploadToMinIO(filePath, fileName, partNumber);
 
     // Prepare metadata for PostgreSQL
     const imageData = {
@@ -64,10 +64,10 @@ async function processFile(filePath, fileName) {
     await saveToPostgres(imageData);
     uploadedSet.add(fileName);
 
-    // Optional: Delete local file after successful upload and DB save
-    fs.unlinkSync(filePath);
-    console.log(`✅ Uploaded and saved metadata for ${fileName}`);
-    console.log(`🗑️ Deleted local file: ${filePath}`);
+  // Optional: Delete local file after successful upload and DB save
+  // fs.unlinkSync(filePath); // Commented out: Do not delete file after upload
+  console.log(`✅ Uploaded and saved metadata for ${fileName}`);
+  // console.log(`🗑️ Deleted local file: ${filePath}`);
 
   } catch (err) {
     console.error(`❌ Failed to process ${fileName}:`, err.message);
@@ -86,20 +86,22 @@ async function startWatcher() {
       ignored: /(^|[\/\\])\../, // ignore dotfiles
       persistent: true,
       awaitWriteFinish: true,
+
       depth: 2 // allow folder detection one level deep
     });
 
     // Handle single image file addition
     watcher.on('add', async (filePath) => {
-      // If file is directly in WATCH_FOLDER, treat as single image
       const parentDir = path.dirname(filePath);
+      const fileName = path.basename(filePath);
+      // If file is directly in WATCH_FOLDER, treat as single image
       if (parentDir === path.resolve(WATCH_FOLDER)) {
-        const fileName = path.basename(filePath);
+        console.log(`Detected new image: ${fileName} in root folder.`);
         await processFile(filePath, fileName);
       } else {
         // If file is inside a folder, treat folder name as part number
         const partNumber = path.basename(parentDir);
-        const fileName = path.basename(filePath);
+        console.log(`Detected new image: ${fileName} in folder ${partNumber}.`);
         await processFile(filePath, fileName, partNumber);
       }
     });
@@ -112,10 +114,36 @@ async function startWatcher() {
         for (const file of files) {
           const imagePath = path.join(folderPath, file);
           if (fs.statSync(imagePath).isFile()) {
+            console.log(`Detected image in new folder: ${file} (part: ${partNumber})`);
             await processFile(imagePath, file, partNumber);
           }
         }
       });
+      // Also watch for new files added to this folder after creation
+      watcher.add(folderPath + '/**/*');
+    });
+
+    // On startup, scan all files in watched_images and subfolders for missed uploads
+    watcher.on('ready', async () => {
+      console.log('Watcher is ready. Scanning for missed files...');
+      const walk = (dir) => {
+        fs.readdirSync(dir).forEach(file => {
+          const fullPath = path.join(dir, file);
+          if (fs.statSync(fullPath).isDirectory()) {
+            walk(fullPath);
+          } else {
+            const parentDir = path.dirname(fullPath);
+            const fileName = path.basename(fullPath);
+            if (parentDir === path.resolve(WATCH_FOLDER)) {
+              processFile(fullPath, fileName);
+            } else {
+              const partNumber = path.basename(parentDir);
+              processFile(fullPath, fileName, partNumber);
+            }
+          }
+        });
+      };
+      walk(WATCH_FOLDER);
     });
 
     console.log('✅ Watcher started successfully.');
