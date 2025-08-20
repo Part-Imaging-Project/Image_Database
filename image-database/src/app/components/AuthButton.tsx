@@ -1,17 +1,30 @@
-// src/components/AuthButton.tsx
+// src/app/components/AuthButton.tsx
 'use client';
 
-import { useUser } from '@auth0/nextjs-auth0/client';
+import { useUser, SignInButton, UserButton } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import Link from 'next/link';
 
 export default function AuthButton() {
-  const { user, isLoading } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
+  const router = useRouter();
 
-  if (isLoading) {
+  // Auto-redirect to dashboard after successful login
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user) {
+      // Check if we're on the home page and redirect to dashboard
+      if (window.location.pathname === '/') {
+        router.push('/dashboard');
+      }
+    }
+  }, [isLoaded, isSignedIn, user, router]);
+
+  if (!isLoaded) {
     return <div className="h-8 w-20 bg-gray-200 rounded animate-pulse"></div>;
   }
 
-  if (user) {
+  if (isSignedIn) {
     return (
       <div className="flex items-center space-x-4">
         <Link
@@ -21,36 +34,30 @@ export default function AuthButton() {
           Dashboard
         </Link>
         <div className="flex items-center gap-2">
-          {user.picture ? (
-            <img
-              src={user.picture}
-              alt={user.name || 'User'}
-              className="h-8 w-8 rounded-full"
-            />
-          ) : (
-            <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-              <span className="text-indigo-600 font-medium">
-                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-              </span>
-            </div>
-          )}
-          <Link
-            href="/api/auth/logout"
-            className="text-sm px-3 py-2 rounded text-gray-700 hover:bg-gray-100"
-          >
-            Log out
-          </Link>
+          <UserButton 
+            afterSignOutUrl="/"
+            appearance={{
+              elements: {
+                avatarBox: "h-8 w-8"
+              }
+            }}
+          />
         </div>
       </div>
     );
   }
 
   return (
-    <Link
-      href="/api/auth/login"
-      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-    >
-      Log in
-    </Link>
+    <div className="flex space-x-2">
+      <SignInButton 
+        mode="modal"
+        forceRedirectUrl="/dashboard"
+        signUpForceRedirectUrl="/dashboard"
+      >
+        <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+          Log in
+        </button>
+      </SignInButton>
+    </div>
   );
 }

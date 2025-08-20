@@ -1,8 +1,10 @@
+// src/app/page.tsx
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { useUser } from '@auth0/nextjs-auth0/client';
+import { useUser, SignInButton } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 
 // Add inline styles to ensure styling works regardless of Tailwind configuration
 const styles = {
@@ -36,7 +38,33 @@ const styles = {
 };
 
 const HeroSection: React.FC = () => {
-  const { user, isLoading } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
+  const router = useRouter();
+
+  // Auto-redirect authenticated users to dashboard
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user) {
+      router.push('/dashboard');
+    }
+  }, [isLoaded, isSignedIn, user, router]);
+
+  // Don't render the homepage content if user is signed in (they'll be redirected)
+  if (isLoaded && isSignedIn) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Redirecting to dashboard...</div>
+          <div style={{ width: '3rem', height: '3rem', border: '3px solid #f3f3f3', borderTop: '3px solid #0078D4', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
+        </div>
+        <style jsx>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -51,7 +79,7 @@ const HeroSection: React.FC = () => {
           </Link>
           
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <Link href="/" style={{ color: 'white', marginRight: '1.5rem', textDecoration: 'none' }}>
+            <Link href="/dashboard" style={{ color: 'white', marginRight: '1.5rem', textDecoration: 'none' }}>
               Dashboard
             </Link>
             <Link href="/gallery" style={{ color: 'white', marginRight: '1.5rem', textDecoration: 'none' }}>
@@ -60,26 +88,19 @@ const HeroSection: React.FC = () => {
             <Link href="/upload" style={{ color: 'white', marginRight: '1.5rem', textDecoration: 'none' }}>
               Upload
             </Link>
-            <Link href="/admin" style={{ color: 'white', marginRight: '1.5rem', textDecoration: 'none' }}>
-              Admin
-            </Link>
             
-            {isLoading ? (
+            {!isLoaded ? (
               <div style={{ height: '2.5rem', width: '7rem', backgroundColor: '#4B5563', borderRadius: '0.375rem' }}></div>
-            ) : user ? (
-              <Link
-                href="/dashboard"
-                style={{ backgroundColor: '#0078D4', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', textDecoration: 'none' }}
-              >
-                My Dashboard
-              </Link>
             ) : (
-              <a
-                href="/api/auth/login?returnTo=/dashboard"
-                style={{ backgroundColor: '#0078D4', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', textDecoration: 'none' }}
+              <SignInButton 
+                mode="modal"
+                forceRedirectUrl="/dashboard"
+                signUpForceRedirectUrl="/dashboard"
               >
-                Sign In
-              </a>
+                <button style={{ backgroundColor: '#0078D4', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}>
+                  Sign In
+                </button>
+              </SignInButton>
             )}
           </div>
         </div>
@@ -96,12 +117,15 @@ const HeroSection: React.FC = () => {
               Streamline your part imaging workflow with our robust system. Store, organize, and retrieve images with comprehensive metadata for ERP integration and AI processing.
             </p>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <a 
-                href="/api/auth/login?returnTo=/dashboard" 
-                style={{ backgroundColor: '#0078D4', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', textDecoration: 'none', fontWeight: '500', display: 'inline-block' }}
+              <SignInButton 
+                mode="modal"
+                forceRedirectUrl="/dashboard"
+                signUpForceRedirectUrl="/dashboard"
               >
-                Get Started
-              </a>
+                <button style={{ backgroundColor: '#0078D4', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', textDecoration: 'none', fontWeight: '500', display: 'inline-block', border: 'none', cursor: 'pointer' }}>
+                  Get Started
+                </button>
+              </SignInButton>
               <a 
                 href="/demo" 
                 style={{ backgroundColor: 'white', color: '#0078D4', padding: '0.75rem 1.5rem', borderRadius: '0.375rem', textDecoration: 'none', fontWeight: '500', display: 'inline-block', border: '1px solid #0078D4' }}
@@ -203,12 +227,12 @@ const HeroSection: React.FC = () => {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', justifyContent: 'center' }}>
             <div style={{ flex: '1 1 250px', backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
               <div style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>Secure Storage</div>
-              <p style={{ color: '#6B7280', fontSize: '1rem' }}>Azure-backed cloud storage with automated backups and high availability.</p>
+              <p style={{ color: '#6B7280', fontSize: '1rem' }}>MinIO-backed cloud storage with automated backups and high availability.</p>
             </div>
             
             <div style={{ flex: '1 1 250px', backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
               <div style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#111827' }}>ERP Integration</div>
-              <p style={{ color: '#6B7280', fontSize: '1rem' }}>Seamless connection to Odoo ERP for part image display and verification.</p>
+              <p style={{ color: '#6B7280', fontSize: '1rem' }}>Seamless connection to PostgreSQL database for part image management.</p>
             </div>
             
             <div style={{ flex: '1 1 250px', backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>

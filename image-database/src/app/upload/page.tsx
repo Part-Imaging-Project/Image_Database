@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser } from '@auth0/nextjs-auth0/client';
+import { useUser, SignInButton, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { useState, useRef } from 'react';
 
@@ -20,7 +20,7 @@ interface UploadResponse {
 }
 
 export default function Upload() {
-  const { user, error, isLoading } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -245,7 +245,7 @@ export default function Upload() {
     }
   };
 
-  if (isLoading) {
+  if (!isLoaded) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
@@ -253,24 +253,15 @@ export default function Upload() {
     );
   }
   
-  if (error) {
-    return (
-      <div className="text-red-500 text-center mt-10">
-        Error: {error.message}
-      </div>
-    );
-  }
-  
-  if (!user) {
+  if (!isSignedIn) {
     return (
       <div className="text-center mt-10 p-6 bg-white rounded-lg shadow">
         <p className="mb-4">Please log in to upload images.</p>
-        <Link
-          href="/api/auth/login?returnTo=/upload"
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-        >
-          Log in
-        </Link>
+        <SignInButton mode="modal">
+          <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+            Log in
+          </button>
+        </SignInButton>
       </div>
     );
   }
@@ -297,7 +288,7 @@ export default function Upload() {
                   Upload
                 </Link>
                 <Link href="/settings" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                  Settings
+                 
                 </Link>
               </div>
             </div>
@@ -306,17 +297,9 @@ export default function Upload() {
                 <div className="relative ml-3">
                   <div className="flex items-center space-x-4">
                     <span className="text-gray-700">
-                      {user.name || user.email || 'User'}
+                      {user?.fullName || user?.emailAddresses[0]?.emailAddress || 'User'}
                     </span>
-                    <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-800 font-semibold">
-                      {(user.name?.charAt(0) || user.email?.charAt(0) || 'U').toUpperCase()}
-                    </div>
-                    <a
-                      href="/api/auth/logout"
-                      className="ml-2 px-3 py-1 text-sm text-gray-700 hover:text-gray-900"
-                    >
-                      Log out
-                    </a>
+                    <UserButton afterSignOutUrl="/" />
                   </div>
                 </div>
               </div>

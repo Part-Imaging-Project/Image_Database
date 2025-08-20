@@ -1,9 +1,24 @@
-// src/components/Navbar.tsx
+// src/app/components/Navbar.tsx
+'use client';
+
 import Link from 'next/link';
-import { useUser } from '@auth0/nextjs-auth0/client';
+import { useUser, SignInButton, UserButton } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function Navbar() {
-  const { user, isLoading } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
+  const router = useRouter();
+
+  // Auto-redirect to dashboard after successful login
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user) {
+      // Check if we're on the home page and redirect to dashboard
+      if (window.location.pathname === '/') {
+        router.push('/dashboard');
+      }
+    }
+  }, [isLoaded, isSignedIn, user, router]);
   
   return (
     <nav className="bg-white shadow-sm">
@@ -15,42 +30,32 @@ export default function Navbar() {
             </Link>
           </div>
           <div className="flex items-center">
-            {isLoading ? (
+            {!isLoaded ? (
               <div className="h-8 w-24 bg-gray-200 rounded animate-pulse"></div>
-            ) : user ? (
+            ) : isSignedIn ? (
               <div className="flex items-center space-x-4">
                 <Link href="/dashboard" className="text-gray-700 hover:text-indigo-600">
                   Dashboard
                 </Link>
-                <div className="flex items-center space-x-2">
-                  {user.picture ? (
-                    <img
-                      src={user.picture}
-                      alt={user.name || 'User'}
-                      className="h-8 w-8 rounded-full"
-                    />
-                  ) : (
-                    <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                      <span className="text-indigo-600 font-medium">
-                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                      </span>
-                    </div>
-                  )}
-                  <Link
-                    href="/api/auth/logout"
-                    className="text-sm px-3 py-2 rounded text-gray-700 hover:bg-gray-100"
-                  >
-                    Log out
-                  </Link>
-                </div>
+                <UserButton 
+                  afterSignOutUrl="/"
+                  appearance={{
+                    elements: {
+                      avatarBox: "h-8 w-8"
+                    }
+                  }}
+                />
               </div>
             ) : (
-              <Link
-                href="/api/auth/login"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+              <SignInButton 
+                mode="modal"
+                forceRedirectUrl="/dashboard"
+                signUpForceRedirectUrl="/dashboard"
               >
-                Log in
-              </Link>
+                <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                  Log in
+                </button>
+              </SignInButton>
             )}
           </div>
         </div>
