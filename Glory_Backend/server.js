@@ -89,7 +89,7 @@ app.post('/upload-folder', upload.array('files'), async (req, res) => {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
     }
-  const partNumber = req.body.partNumber || 'unknown-part';
+  const partNumber = req.body.part_number || 'unknown-part';
     let results = [];
 
     for (const file of req.files) {
