@@ -1,6 +1,10 @@
 // server.js
 const express = require('express');
 const app = express();
+const multer = require("multer");
+const path = require('path');
+const fs = require('fs');
+const { uploadToMinIO } = require('./uploadToMinIO');
 const { client, connectDB, saveToPostgres, getImages, deleteImage, updateImage, getImagesByPartNumber } = require('./postgresDb');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -15,6 +19,7 @@ const minioClient = new MinioClient({
   accessKey: process.env.MINIO_ACCESS_KEY,
   secretKey: process.env.MINIO_SECRET_KEY,
 });
+const BUCKET_NAME = process.env.MINIO_BUCKET
 
 
 
@@ -77,26 +82,31 @@ app.get('/images', async (req, res) => {
 // ...existing code...
 // --- Batch folder upload endpoint ---
 // Accepts a folder path and uploads all images inside, using folder name as part number
-app.post('/upload-folder', async (req, res) => {
-  const { folder_path } = req.body;
-  if (!folder_path) {
-    return res.status(400).json({ error: 'Missing required field: folder_path' });
-  }
-  const fs = require('fs');
-  const path = require('path');
-  const { uploadToMinIO } = require('./uploadToMinIO');
+// Multer setup: save uploaded files temporarily
+const upload = multer({ dest: 'uploads/' }); // creates "uploads/" if not exists
+app.post('/upload-folder', upload.array('files'), async (req, res) => {
   try {
-    const partNumber = path.basename(folder_path);
-    const files = fs.readdirSync(folder_path);
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+  const partNumber = req.body.partNumber || 'unknown-part';
     let results = [];
-    for (const file of files) {
-      const imagePath = path.join(folder_path, file);
-      if (fs.statSync(imagePath).isFile()) {
-        // Upload each image, passing partNumber
-        const objectUrl = await uploadToMinIO(imagePath, file, partNumber);
-        results.push({ file, objectUrl });
+
+    for (const file of req.files) {
+      const tempPath = file.path; // temp file saved by Multer
+      const originalName = file.originalname;
+
+      try {
+        // ✅ Pass to your existing uploadToMinIO (works with filePath)
+        const objectUrl = await uploadToMinIO(tempPath, originalName, partNumber);
+
+        results.push({ file: originalName, objectUrl });
+      } finally {
+        // Clean up temp file
+        fs.unlinkSync(tempPath);
       }
     }
+
     res.json({ uploaded: results, partNumber });
   } catch (err) {
     console.error('Batch upload failed:', err.message);
@@ -296,9 +306,6 @@ app.post('/images/batch-delete', async (req, res) => {
     res.status(500).json({ error: err && err.message ? err.message : 'Unknown error during batch delete' });
   }
 });
-
-
-
 
 
 
