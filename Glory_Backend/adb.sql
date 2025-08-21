@@ -3,6 +3,7 @@ CREATE TABLE parts (
     part_name VARCHAR(100) NOT NULL,
     part_number VARCHAR(30) UNIQUE NOT NULL,
     description TEXT,
+    category TEXT DEFAULT 'Uncategorized',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
