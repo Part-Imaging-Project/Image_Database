@@ -1,5 +1,4 @@
 const { Client } = require('pg');
-const fs = require('fs');
 require('dotenv').config();
 
 // Create DB client using environment variables
@@ -28,8 +27,39 @@ const connectDB = async () => {
   }
 };
 
+/**
+ * Ensure part exists in DB, return its ID.
+ * If not found, insert it with fallback part_name = "Part <partNumber>".
+ */
+const ensurePart = async (partNumber) => {
+  try {
+    const checkQuery = 'SELECT id FROM parts WHERE part_number = $1';
+    const checkResult = await client.query(checkQuery, [partNumber]);
+
+    if (checkResult.rowCount > 0) {
+      return checkResult.rows[0].id;
+    }
+
+    // Fallback — insert new part with placeholder name
+    const insertQuery = `
+      INSERT INTO parts (part_number, part_name)
+      VALUES ($1, $2)
+      RETURNING id
+    `;
+    const insertResult = await client.query(insertQuery, [
+      partNumber,
+      `Part ${partNumber}`
+    ]);
+
+    return insertResult.rows[0].id;
+  } catch (err) {
+    console.error('Error ensuring part:', err.message);
+    throw err;
+  }
+};
+
 // Save image metadata to the database
-const saveToPostgres = async (imageData) => {
+const saveToPostgres = async (imageData, partNumber = null) => {
   try {
     // Check if the filename already exists
     const checkQuery = 'SELECT 1 FROM images WHERE file_name = $1';
@@ -38,6 +68,12 @@ const saveToPostgres = async (imageData) => {
     if (checkResult.rowCount > 0) {
       console.log(`Duplicate detected: Skipping ${imageData.file_name}`);
       return null;
+    }
+
+    // If partNumber provided, ensure part exists
+    let partId = null;
+    if (partNumber) {
+      partId = await ensurePart(partNumber);
     }
 
     // Insert into images table
@@ -55,7 +91,7 @@ const saveToPostgres = async (imageData) => {
       imageData.image_size,
       imageData.captured_at,
       imageData.bucket_name,
-      imageData.part_id,
+      partId,
       imageData.camera_id
     ];
     const imageResult = await client.query(insertImageQuery, values);
@@ -87,19 +123,19 @@ const saveToPostgres = async (imageData) => {
 // Retrieve all images with metadata
 const getImages = async () => {
   try {
-const query = `
-  SELECT 
-    i.id AS image_id,
-    i.file_path, i.file_name, i.file_type, i.image_size, i.captured_at, i.bucket_name,
-    p.part_name, p.part_number,
-    c.device_model, c.location, c.serial_number,
-    m.resolution, m.capture_mode, m.notes
-  FROM images i
-  LEFT JOIN parts p ON i.part_id = p.id
-  LEFT JOIN camera c ON i.camera_id = c.id
-  LEFT JOIN metadata m ON i.id = m.image_id
-  ORDER BY i.captured_at DESC;
-`;
+    const query = `
+      SELECT 
+        i.id AS image_id,
+        i.file_path, i.file_name, i.file_type, i.image_size, i.captured_at, i.bucket_name,
+        p.part_name, p.part_number,
+        c.device_model, c.location, c.serial_number,
+        m.resolution, m.capture_mode, m.notes
+      FROM images i
+      LEFT JOIN parts p ON i.part_id = p.id
+      LEFT JOIN camera c ON i.camera_id = c.id
+      LEFT JOIN metadata m ON i.id = m.image_id
+      ORDER BY i.captured_at DESC;
+    `;
     const result = await client.query(query);
     return result.rows;
   } catch (err) {
@@ -133,46 +169,46 @@ const getImagesByPartNumber = async (partNumber) => {
   }
 };
 
-
 const updateImage = async (id, fields) => {
-    const keys = Object.keys(fields).filter(key => fields[key] !== undefined);
-    if (keys.length === 0) return null;
+  const keys = Object.keys(fields).filter(key => fields[key] !== undefined);
+  if (keys.length === 0) return null;
 
-    const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(', ');
-    const values = keys.map(key => fields[key]);
+  const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(', ');
+  const values = keys.map(key => fields[key]);
 
-    try {
-        const query = `
-            UPDATE images
-            SET ${setClause}
-            WHERE id = $${values.length + 1}
-            RETURNING *
-        `;
-        const result = await client.query(query, [...values, id]);
-        return result.rows[0];
-    } catch (err) {
-        console.error('Error updating image:', err.message);
-        throw err;
-    }
+  try {
+    const query = `
+      UPDATE images
+      SET ${setClause}
+      WHERE id = $${values.length + 1}
+      RETURNING *
+    `;
+    const result = await client.query(query, [...values, id]);
+    return result.rows[0];
+  } catch (err) {
+    console.error('Error updating image:', err.message);
+    throw err;
+  }
 };
 
 const deleteImage = async (id) => {
-    try {
-        const query = 'DELETE FROM images WHERE id = $1 RETURNING *';
-        const result = await client.query(query, [id]);
-        return result.rows[0];
-    } catch (err) {
-        console.error('Error deleting image:', err.message);
-        throw err;
-    }
+  try {
+    const query = 'DELETE FROM images WHERE id = $1 RETURNING *';
+    const result = await client.query(query, [id]);
+    return result.rows[0];
+  } catch (err) {
+    console.error('Error deleting image:', err.message);
+    throw err;
+  }
 };
 
 module.exports = {
-   client, 
+  client,
   connectDB,
   saveToPostgres,
   getImages,
   getImagesByPartNumber,
   updateImage,
-  deleteImage
+  deleteImage,
+  ensurePart
 };
