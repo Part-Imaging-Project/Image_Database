@@ -63,8 +63,8 @@ async function uploadToMinIO(filePath, fileName, partNumber = null) {
   await minioClient.fPutObject(bucketName, objectKey, filePath);
   console.log(`⬆️ Uploaded ${fileName} to ${bucketName}/${objectKey}`);
 
-  // Build public URL
-  const objectUrl = `${process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http'}://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${bucketName}/${objectKey}`;
+  // Build public URL (do NOT encode the whole link)
+  const objectUrl = `${process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http'}://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${bucketName}/${partNumber ? partNumber + '/' : ''}${encodedFileName}`;
 
   // Return objectUrl and extracted metadata for DB insert
   return { objectUrl, resolution, captureMode };

@@ -26,8 +26,8 @@ async function processFile(filePath, fileName, partNumber = null) {
       return false;
     }
     console.log(`�📂 Processing new file: ${fileName}`);
-    // Upload to MinIO
-    const objectUrl = await uploadToMinIO(filePath, fileName, partNumber);
+    // Upload to MinIO and get metadata
+    const { objectUrl, resolution, captureMode } = await uploadToMinIO(filePath, fileName, partNumber);
     // Get part_id from DB
     let part_id = null;
     if (partNumber) {
@@ -43,12 +43,12 @@ async function processFile(filePath, fileName, partNumber = null) {
       bucket_name: process.env.MINIO_BUCKET,
       part_id,
       camera_id: null,
-      resolution: '1920x1080',
-      capture_mode: 'Auto',
+      resolution: resolution,
+      capture_mode: captureMode,
       notes: 'Uploaded via Node.js watcher'
     };
-  // Save metadata to PostgreSQL, always pass partNumber
-  await saveToPostgres(imageData, partNumber);
+    // Save metadata to PostgreSQL, always pass partNumber
+    await saveToPostgres(imageData, partNumber);
     uploadedSet.add(fileName);
     console.log(`✅ Uploaded and saved metadata for ${fileName}`);
     return true;
