@@ -1,5 +1,7 @@
 const fs = require('fs');
 const { Client } = require('minio');
+const sizeOf = require('image-size');
+const ExifParser = require('exif-parser');
 require('dotenv').config();
 
 const minioClient = new Client({
@@ -33,13 +35,39 @@ async function uploadToMinIO(filePath, fileName, partNumber = null) {
   const encodedFileName = encodeURIComponent(fileName);
   const objectKey = partNumber ? `${partNumber}/${encodedFileName}` : encodedFileName;
 
+  // Extract resolution using image-size
+  let resolution = null;
+  try {
+    const dimensions = sizeOf(filePath);
+    resolution = `${dimensions.width}x${dimensions.height}`;
+  } catch (err) {
+    resolution = 'Unknown';
+  }
+
+  // Extract capture mode from EXIF (if available)
+  let captureMode = 'Unknown';
+  try {
+    const buffer = fs.readFileSync(filePath);
+    const parser = ExifParser.create(buffer);
+    const exif = parser.parse();
+    if (exif.tags && exif.tags.ExposureMode !== undefined) {
+      captureMode = exif.tags.ExposureMode.toString();
+    } else if (exif.tags && exif.tags.SceneCaptureType !== undefined) {
+      captureMode = exif.tags.SceneCaptureType.toString();
+    }
+  } catch (err) {
+    // leave as 'Unknown' if not found
+  }
+
   // Upload file
   await minioClient.fPutObject(bucketName, objectKey, filePath);
   console.log(`⬆️ Uploaded ${fileName} to ${bucketName}/${objectKey}`);
 
   // Build public URL
   const objectUrl = `${process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http'}://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${bucketName}/${objectKey}`;
-  return objectUrl;
+
+  // Return objectUrl and extracted metadata for DB insert
+  return { objectUrl, resolution, captureMode };
 }
 
 module.exports = { uploadToMinIO };
