@@ -36,6 +36,101 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
+  // Helper function to extract part number from various sources
+  const extractPartNumber = (image: any): string => {
+    // Priority order: part_number -> part_name -> extract from file_path -> extract from notes -> fallback
+    if (image.part_number && image.part_number.trim() !== "") {
+      return image.part_number.trim();
+    }
+
+    if (image.part_name && image.part_name.trim() !== "") {
+      return image.part_name.trim();
+    }
+
+    // Extract from file_path URL structure (new folder format)
+    if (image.file_path) {
+      const pathPartNumber = extractPartNumberFromPath(image.file_path);
+      if (pathPartNumber) {
+        return pathPartNumber;
+      }
+    }
+
+    // Try to extract from notes
+    if (image.notes) {
+      const partMatch =
+        image.notes.match(/Part:\s*([A-Za-z0-9\-_]+)/i) ||
+        image.notes.match(/P\/?N:\s*([A-Za-z0-9\-_]+)/i);
+      if (partMatch) {
+        return partMatch[1];
+      }
+    }
+
+    // Fallback
+    return `PART-${image.image_id || image.id}`;
+  };
+
+  // Helper function to extract part number from file path URL
+  const extractPartNumberFromPath = (filePath: string): string | null => {
+    if (!filePath) return null;
+
+    try {
+      // If it's a full URL, parse it
+      if (filePath.startsWith("http")) {
+        const url = new URL(filePath);
+        const pathParts = url.pathname
+          .split("/")
+          .filter((part) => part.length > 0);
+        // Structure: [bucket, partNumber, filename]
+        if (pathParts.length >= 3) {
+          return pathParts[1]; // Return the part number
+        }
+      } else {
+        // If it's just a path, split by '/'
+        const pathParts = filePath.split("/").filter((part) => part.length > 0);
+        if (pathParts.length >= 2) {
+          return pathParts[0]; // Return the part number (first folder)
+        }
+      }
+    } catch (error) {
+      console.error("Error parsing file path:", error);
+    }
+
+    return null;
+  };
+
+  // Fixed URL generation for MinIO folder structure
+  const getImagePreviewUrl = (image: ImageData): string => {
+    // If we have a complete file_path URL, use it directly
+    if (image.file_path && image.file_path.startsWith("http")) {
+      console.log("Using direct file_path URL:", image.file_path);
+      return image.file_path;
+    }
+
+    // Otherwise, construct the URL using folder structure
+    const partNumber = extractPartNumber(image);
+
+    // Clean bucket name (replace underscores with hyphens if needed)
+    const cleanBucketName = (image.bucket_name || "images").replace(/_/g, "-");
+
+    // Encode the filename to handle special characters
+    const encodedFileName = encodeURIComponent(image.file_name);
+
+    // Build MinIO URL with folder structure: bucket/partNumber/filename
+    const minioBaseUrl =
+      process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000";
+    const constructedUrl = `${minioBaseUrl}/${cleanBucketName}/${partNumber}/${encodedFileName}`;
+
+    console.log("Constructing MinIO URL:", {
+      partNumber,
+      cleanBucketName,
+      fileName: image.file_name,
+      constructedUrl,
+      originalFilePath: image.file_path,
+    });
+
+    return constructedUrl;
+  };
+
   // API Functions
   const fetchAllImages = async (): Promise<ImageData[]> => {
     try {
@@ -51,22 +146,7 @@ export default function Dashboard() {
       const processedData = data.map((item: any) => {
         console.log("Processing item:", item);
 
-        // Extract part number from multiple possible fields
-        const partNumber =
-          item.part_number ||
-          item.partNumber ||
-          item.part_name ||
-          item.partName ||
-          extractPartNumberFromNotes(item.notes) ||
-          `PART-${item.image_id || item.id}`;
-
-        // Extract part name
-        const partName =
-          item.part_name ||
-          item.partName ||
-          item.part_number ||
-          item.partNumber ||
-          "Unknown Part";
+        const partNumber = extractPartNumber(item);
 
         const processedItem = {
           image_id: item.image_id || item.id,
@@ -76,7 +156,7 @@ export default function Dashboard() {
           image_size: item.image_size || 0,
           captured_at: item.captured_at || new Date().toISOString(),
           bucket_name: item.bucket_name || "images",
-          part_name: partName,
+          part_name: item.part_name || partNumber,
           part_number: partNumber,
           device_model: item.device_model || "Unknown Camera",
           location: item.location || "Unknown Location",
@@ -93,7 +173,7 @@ export default function Dashboard() {
         return processedItem;
       });
 
-      console.log("Processed images with part numbers:", processedData);
+      console.log("All processed images:", processedData);
       return processedData;
     } catch (error) {
       console.error("Error fetching images:", error);
@@ -106,25 +186,6 @@ export default function Dashboard() {
     }
   };
 
-  // Helper function to extract part number from notes field
-  const extractPartNumberFromNotes = (notes: string): string | null => {
-    if (!notes) return null;
-
-    // Look for patterns like "Part: ABC123" in notes
-    const partMatch = notes.match(/Part:\s*([A-Za-z0-9\-_]+)/i);
-    if (partMatch) {
-      return partMatch[1];
-    }
-
-    // Look for patterns like "PN: ABC123" or "P/N: ABC123"
-    const pnMatch = notes.match(/P\/?N:\s*([A-Za-z0-9\-_]+)/i);
-    if (pnMatch) {
-      return pnMatch[1];
-    }
-
-    return null;
-  };
-
   const fetchImageById = async (id: number): Promise<ImageData | null> => {
     try {
       const response = await fetch(`${API_BASE_URL}/images/${id}`);
@@ -133,7 +194,27 @@ export default function Dashboard() {
       }
       const data = await response.json();
       console.log("Single image data:", data);
-      return data;
+
+      // Process the single image data
+      const processedImage = {
+        image_id: data.image_id || data.id,
+        file_name: data.file_name || data.filename,
+        file_path: data.file_path,
+        file_type: data.file_type || "image/jpeg",
+        image_size: data.image_size || 0,
+        captured_at: data.captured_at || new Date().toISOString(),
+        bucket_name: data.bucket_name || "images",
+        part_name: data.part_name || extractPartNumber(data),
+        part_number: extractPartNumber(data),
+        device_model: data.device_model || "Unknown Camera",
+        location: data.location || "Unknown Location",
+        serial_number: data.serial_number || "Unknown Serial",
+        resolution: data.resolution || "1920x1080",
+        capture_mode: data.capture_mode || "Auto",
+        notes: data.notes || "",
+      };
+
+      return processedImage;
     } catch (error) {
       console.error("Error fetching image:", error);
       return null;
@@ -157,41 +238,7 @@ export default function Dashboard() {
     }
   };
 
-  // Generate image preview URL - FIXED for folder structure
-  const getImagePreviewUrl = (image: ImageData): string => {
-    // Extract part number to construct the correct MinIO path
-    const partNumber =
-      image.part_number ||
-      extractPartNumberFromPath(image.file_path) ||
-      "unknown";
-
-    // Clean bucket name (replace underscores with hyphens if needed)
-    const cleanBucketName = image.bucket_name.replace(/_/g, "-");
-
-    // Build the correct MinIO URL with folder structure
-    // Format: http://localhost:9000/bucket-name/part-number/filename.jpg
-    const encodedFileName = encodeURIComponent(image.file_name);
-    const minioBaseUrl =
-      process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000";
-
-    return `${minioBaseUrl}/${cleanBucketName}/${partNumber}/${encodedFileName}`;
-  };
-
-  // Helper function to extract part number from file path
-  const extractPartNumberFromPath = (filePath: string): string | null => {
-    if (!filePath) return null;
-
-    // Try to extract part number from path like "part-number/filename.jpg"
-    const pathParts = filePath.split("/");
-    if (pathParts.length >= 2) {
-      // Return the folder name (part number)
-      return pathParts[pathParts.length - 2];
-    }
-
-    return null;
-  };
-
-  // Download image function - FIXED for folder structure
+  // Fixed download function for folder structure
   const downloadImage = async (image: ImageData): Promise<void> => {
     try {
       console.log("Downloading image:", image.file_name);
@@ -253,16 +300,8 @@ export default function Dashboard() {
 
       // Fallback: try direct MinIO access with folder structure
       try {
-        const partNumber =
-          image.part_number ||
-          extractPartNumberFromPath(image.file_path) ||
-          "unknown";
-        const cleanBucketName = image.bucket_name.replace(/_/g, "-");
-        const encodedFileName = encodeURIComponent(image.file_name);
-        const minioBaseUrl =
-          process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000";
-        const fallbackUrl = `${minioBaseUrl}/${cleanBucketName}/${partNumber}/${encodedFileName}`;
-
+        const fallbackUrl = getImagePreviewUrl(image);
+        console.log("Trying fallback URL:", fallbackUrl);
         window.open(fallbackUrl, "_blank");
       } catch (fallbackError) {
         console.error("Fallback download also failed:", fallbackError);
@@ -335,6 +374,7 @@ export default function Dashboard() {
     if (imageDetails) {
       // Open image in new tab using the correct folder-based URL
       const imageUrl = getImagePreviewUrl(imageDetails);
+      console.log("Opening image URL:", imageUrl);
       window.open(imageUrl, "_blank");
     }
   };
@@ -384,20 +424,9 @@ export default function Dashboard() {
     );
   });
 
-  // Get images for current tab
+  // Get images for current tab - show all images
   const getTabImages = () => {
-    switch (activeTab) {
-      case "recent":
-        return filteredImages.slice(0, 10); // Show latest 10 images
-      case "favorites":
-        // For now, return empty array as we don't have favorites functionality
-        return [];
-      case "pending":
-        // For now, return empty array as we don't have pending status
-        return [];
-      default:
-        return filteredImages.slice(0, 10);
-    }
+    return filteredImages; // Show all filtered images
   };
 
   const tabImages = getTabImages();
