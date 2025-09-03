@@ -1,3 +1,4 @@
+// src/app/gallery/page.tsx - Fixed for MinIO folder structure
 "use client";
 
 import { SignInButton, UserButton, useUser } from "@clerk/nextjs";
@@ -56,19 +57,126 @@ export default function Gallery() {
   const [groupedImages, setGroupedImages] = useState<GroupedImages[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  // API Functions - using existing endpoints only
+  // Helper function to extract part number from various sources
+  const extractPartNumber = (img: any): string => {
+    // Priority order: part_number -> part_name -> extract from file_path -> extract from notes -> fallback
+    if (img.part_number && img.part_number.trim() !== "") {
+      return img.part_number.trim();
+    }
+
+    if (img.part_name && img.part_name.trim() !== "") {
+      return img.part_name.trim();
+    }
+
+    // Extract from file_path URL structure (new folder format)
+    if (img.file_path) {
+      const pathPartNumber = extractPartNumberFromPath(img.file_path);
+      if (pathPartNumber) {
+        return pathPartNumber;
+      }
+    }
+
+    // Try to extract from notes
+    if (img.notes) {
+      const partMatch =
+        img.notes.match(/Part:\s*([A-Za-z0-9\-_]+)/i) ||
+        img.notes.match(/P\/?N:\s*([A-Za-z0-9\-_]+)/i);
+      if (partMatch) {
+        return partMatch[1];
+      }
+    }
+
+    // Extract from filename as last resort
+    if (img.file_name) {
+      const filenameMatch = img.file_name.match(/([A-Za-z0-9\-_]+)/);
+      if (filenameMatch) {
+        return filenameMatch[1];
+      }
+    }
+
+    // Fallback
+    return `UNKNOWN-${img.image_id || img.id}`;
+  };
+
+  // Helper function to extract part number from file path URL
+  const extractPartNumberFromPath = (filePath: string): string | null => {
+    if (!filePath) return null;
+
+    try {
+      // If it's a full URL, parse it
+      if (filePath.startsWith("http")) {
+        const url = new URL(filePath);
+        const pathParts = url.pathname
+          .split("/")
+          .filter((part) => part.length > 0);
+        // Structure: [bucket, partNumber, filename]
+        if (pathParts.length >= 3) {
+          return pathParts[1]; // Return the part number
+        }
+      } else {
+        // If it's just a path, split by '/'
+        const pathParts = filePath.split("/").filter((part) => part.length > 0);
+        if (pathParts.length >= 2) {
+          return pathParts[0]; // Return the part number (first folder)
+        }
+      }
+    } catch (error) {
+      console.error("Error parsing file path:", error);
+    }
+
+    return null;
+  };
+
+  // Fixed URL generation for MinIO folder structure
+  const generateImageUrl = (image: ImageType): string => {
+    // If we have a complete file_path URL, use it directly
+    if (image.file_path && image.file_path.startsWith("http")) {
+      console.log("Using direct file_path URL:", image.file_path);
+      return image.file_path;
+    }
+
+    // Otherwise, construct the URL using folder structure
+    const partNumber = image.partNumber || extractPartNumber(image);
+
+    // Clean bucket name (replace underscores with hyphens if needed)
+    const cleanBucketName = (image.bucket_name || "images").replace(/_/g, "-");
+
+    // Encode the filename to handle special characters
+    const encodedFileName = encodeURIComponent(image.file_name || image.name);
+
+    // Build MinIO URL with folder structure: bucket/partNumber/filename
+    const minioBaseUrl =
+      process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000";
+    const constructedUrl = `${minioBaseUrl}/${cleanBucketName}/${partNumber}/${encodedFileName}`;
+
+    console.log("Constructing MinIO URL:", {
+      partNumber,
+      cleanBucketName,
+      fileName: image.file_name || image.name,
+      constructedUrl,
+      originalFilePath: image.file_path,
+    });
+
+    return constructedUrl;
+  };
+
+  // API Functions
   const fetchAllImages = async () => {
     try {
       setApiError(null);
+      console.log("Fetching images from:", `${API_BASE_URL}/images`);
       const response = await fetch(`${API_BASE_URL}/images`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
+      console.log("Raw API response:", data);
       return data;
     } catch (error) {
       console.error("Error fetching images:", error);
-      setApiError("Failed to fetch images");
+      setApiError(
+        "Failed to fetch images from backend. Make sure the backend is running."
+      );
       return [];
     }
   };
@@ -103,113 +211,7 @@ export default function Gallery() {
     }
   };
 
-  // Helper function to extract part number from file path URL
-  const extractPartNumberFromPath = (filePath: string): string | null => {
-    if (!filePath) return null;
-
-    try {
-      // Parse the file_path URL to extract the MinIO key structure
-      const url = new URL(filePath);
-      const pathname = url.pathname;
-
-      // Remove leading slash and split by '/'
-      const pathParts = pathname.substring(1).split("/");
-
-      // Structure should be: [bucket, partNumber, filename]
-      if (pathParts.length >= 3) {
-        // Return the part number (second element after bucket)
-        return pathParts[1];
-      }
-
-      // Fallback: try splitting the path differently
-      const allParts = pathname.split("/").filter((part) => part.length > 0);
-      if (allParts.length >= 3) {
-        return allParts[1]; // bucket/partNumber/filename
-      }
-    } catch (error) {
-      console.error("Error parsing file path:", error);
-    }
-
-    return null;
-  };
-
-  // Helper Functions - FIXED for folder structure
-  const generateImageUrl = (image: ImageType): string => {
-    // If we have a file_path URL from the backend, use it directly
-    if (image.file_path && image.file_path.startsWith("http")) {
-      console.log("Using direct file_path URL:", image.file_path);
-      return image.file_path;
-    }
-
-    // Otherwise, construct the URL from components
-    const partNumber =
-      image.part_number ||
-      image.partNumber ||
-      extractPartNumberFromPath(image.file_path) ||
-      "unknown";
-
-    // Clean bucket name (replace underscores with hyphens if needed)
-    const cleanBucketName = image.bucket_name.replace(/_/g, "-");
-
-    // Build the correct MinIO URL with folder structure
-    // Format: http://localhost:9000/bucket-name/part-number/filename.jpg
-    const encodedFileName = encodeURIComponent(image.file_name || image.name);
-    const minioBaseUrl =
-      process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000";
-
-    const constructedUrl = `${minioBaseUrl}/${cleanBucketName}/${partNumber}/${encodedFileName}`;
-
-    console.log("Constructing URL:", {
-      minioBaseUrl,
-      cleanBucketName,
-      partNumber,
-      fileName: image.file_name || image.name,
-      constructedUrl,
-      originalFilePath: image.file_path,
-    });
-
-    return constructedUrl;
-  };
-
-  const extractPartNumber = (img: any): string => {
-    // Try to get part number from various fields in priority order
-    if (img.part_number && img.part_number.trim()) {
-      return img.part_number.trim();
-    }
-
-    if (img.part_name && img.part_name.trim()) {
-      return img.part_name.trim();
-    }
-
-    // Try to extract from file path (new folder structure)
-    const pathPartNumber = extractPartNumberFromPath(img.file_path);
-    if (pathPartNumber) {
-      return pathPartNumber;
-    }
-
-    // Try to extract from notes field
-    if (img.notes) {
-      const partMatch =
-        img.notes.match(/Part:\s*([A-Za-z0-9\-_]+)/i) ||
-        img.notes.match(/P\/?N:\s*([A-Za-z0-9\-_]+)/i) ||
-        img.notes.match(/Part-(\d+)/i);
-      if (partMatch) {
-        return partMatch[1];
-      }
-    }
-
-    // Try to extract from filename
-    if (img.file_name) {
-      const filenameMatch = img.file_name.match(/Part-(\d+)/i);
-      if (filenameMatch) {
-        return `Part-${filenameMatch[1]}`;
-      }
-    }
-
-    // Fallback
-    return `UNKNOWN-${img.image_id || img.id}`;
-  };
-
+  // Format images for display with proper part number extraction
   const formatImagesForDisplay = (imagesData: any[]): ImageType[] => {
     return imagesData.map((img) => {
       const imageId = img.image_id || img.id;
@@ -234,7 +236,7 @@ export default function Gallery() {
         file_type: img.file_type,
         image_size: img.image_size,
         captured_at: img.captured_at,
-        bucket_name: img.bucket_name || "default-bucket",
+        bucket_name: img.bucket_name || "images",
         part_name: img.part_name,
         part_number: img.part_number,
         device_model: img.device_model,
@@ -247,6 +249,7 @@ export default function Gallery() {
     });
   };
 
+  // Group images by part number
   const groupImagesByPartNumber = (images: ImageType[]): GroupedImages[] => {
     const grouped = images.reduce((acc, image) => {
       const partNumber = image.partNumber;
@@ -295,9 +298,16 @@ export default function Gallery() {
     );
   };
 
+  // Fixed download function for folder structure
   const downloadImage = async (image: ImageType): Promise<void> => {
     try {
       console.log("Downloading image:", image.file_name || image.name);
+
+      // Show loading state
+      const originalText = document.activeElement?.textContent;
+      if (document.activeElement) {
+        (document.activeElement as HTMLElement).textContent = "Downloading...";
+      }
 
       // Use the backend download endpoint instead of direct MinIO access
       const response = await fetch(
@@ -318,8 +328,21 @@ export default function Gallery() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
+
+      // Reset button text
+      if (document.activeElement && originalText) {
+        (document.activeElement as HTMLElement).textContent = originalText;
+      }
+
+      console.log("Download completed for:", image.file_name || image.name);
     } catch (error) {
       console.error("Download failed:", error);
+
+      // Reset button text
+      if (document.activeElement) {
+        (document.activeElement as HTMLElement).textContent = "Download";
+      }
+
       alert(
         `Download failed: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -329,6 +352,7 @@ export default function Gallery() {
       // Fallback: try direct MinIO access with folder structure
       try {
         const fallbackUrl = generateImageUrl(image);
+        console.log("Trying fallback URL:", fallbackUrl);
         window.open(fallbackUrl, "_blank");
       } catch (fallbackError) {
         console.error("Fallback download also failed:", fallbackError);
@@ -388,6 +412,12 @@ export default function Gallery() {
       // Group images by part number
       const grouped = groupImagesByPartNumber(formattedImages);
       setGroupedImages(grouped);
+
+      console.log("Loaded and grouped images:", {
+        totalImages: formattedImages.length,
+        groups: grouped.length,
+        sampleGroup: grouped[0],
+      });
     } catch (error) {
       console.error("Error loading images:", error);
       setApiError("Failed to load images");
@@ -714,6 +744,10 @@ export default function Gallery() {
                       onClick={() => handleImageClick(image.id)}
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
+                        console.error(
+                          "Image failed to load:",
+                          generateImageUrl(image)
+                        );
                         target.style.display = "none";
                         target.nextElementSibling?.classList.remove("hidden");
                       }}
@@ -832,8 +866,18 @@ export default function Gallery() {
                   No parts found
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  Try adjusting your search criteria.
+                  {apiError
+                    ? "Backend connection issue. Check if your server is running."
+                    : "Try adjusting your search criteria or upload some images."}
                 </p>
+                {!apiError && (
+                  <Link
+                    href="/upload"
+                    className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    Upload Your First Images
+                  </Link>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -876,6 +920,10 @@ export default function Gallery() {
                               className="w-full h-16 object-cover rounded"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
+                                console.error(
+                                  "Preview image failed to load:",
+                                  generateImageUrl(image)
+                                );
                                 target.style.display = "none";
                                 target.nextElementSibling?.classList.remove(
                                   "hidden"
@@ -994,6 +1042,10 @@ export default function Gallery() {
                             className="max-w-full max-h-full object-contain rounded"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
+                              console.error(
+                                "Modal image failed to load:",
+                                generateImageUrl(selectedImage)
+                              );
                               target.style.display = "none";
                               target.nextElementSibling?.classList.remove(
                                 "hidden"
@@ -1019,6 +1071,9 @@ export default function Gallery() {
                             </div>
                             <div className="text-sm text-gray-400">
                               {selectedImage.name}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">
+                              URL: {generateImageUrl(selectedImage)}
                             </div>
                           </div>
                         </div>
@@ -1145,6 +1200,21 @@ export default function Gallery() {
                               </p>
                             </div>
                           )}
+
+                          {/* Debug Info (temporary) */}
+                          <div className="bg-yellow-50 p-4 rounded-lg">
+                            <h4 className="text-sm font-medium text-gray-900 mb-3">
+                              Debug Info
+                            </h4>
+                            <div className="text-xs text-gray-600 space-y-1">
+                              <div>
+                                Image URL: {generateImageUrl(selectedImage)}
+                              </div>
+                              <div>File Path: {selectedImage.file_path}</div>
+                              <div>Bucket: {selectedImage.bucket_name}</div>
+                              <div>Part Number: {selectedImage.partNumber}</div>
+                            </div>
+                          </div>
 
                           {/* Actions */}
                           <div className="bg-gray-50 p-4 rounded-lg">
