@@ -1,51 +1,39 @@
 const chokidar = require('chokidar');
 const fs = require('fs');
 const path = require('path');
+const mime = require('mime-types');
 require('dotenv').config();
-const mime = require('mime-types'); // ✅ Now imported
 
 const { uploadToMinIO } = require('./uploadToMinIO');
-const { client, connectDB, saveToPostgres } = require('./postgresDb');
+const { connectDB, saveToPostgres, ensurePart } = require('./postgresDb');
 
-// Configuration
 const WATCH_FOLDER = process.env.WATCH_FOLDER || './watched_images';
-
-// Track uploaded files
 const uploadedSet = new Set();
 
-/**
- * Process a single file for upload and metadata saving.
- * @param {string} filePath - Path to the file.
- * @param {string} fileName - Name of the file.
- */
-// Accepts optional partNumber for folder uploads
 async function processFile(filePath, fileName, partNumber = null) {
   try {
-    // Skip if already processed
     if (uploadedSet.has(fileName)) {
-      console.log(`🟡 Already processed: ${fileName}`);
-      return;
+      console.log(`🟡 Already processed in this session: ${fileName}`);
+      return false;
     }
-
-    console.log(`📂 Processing new file: ${fileName}`);
-
     // Check if already exists in DB
+    const { client } = require('./postgresDb');
     const checkQuery = 'SELECT 1 FROM images WHERE file_name = $1';
     const checkResult = await client.query(checkQuery, [fileName]);
-
     if (checkResult.rowCount > 0) {
-      console.log(`🟠 Duplicate detected: Skipping ${fileName}`);
-      // fs.unlinkSync(filePath); // Commented out: Do not delete duplicate file
-      // console.log(`🗑️ Deleted duplicate file: ${filePath}`);
+      console.log(`� Duplicate detected in DB: Skipping ${fileName}`);
       uploadedSet.add(fileName);
-      return;
+      return false;
     }
-
-    // Upload to MinIO
-  // Pass partNumber if available
-  const objectUrl = await uploadToMinIO(filePath, fileName, partNumber);
-
-    // Prepare metadata for PostgreSQL
+    console.log(`�📂 Processing new file: ${fileName}`);
+    // Upload to MinIO and get metadata
+    const { objectUrl, resolution, captureMode } = await uploadToMinIO(filePath, fileName, partNumber);
+    // Get part_id from DB
+    let part_id = null;
+    if (partNumber) {
+      part_id = await ensurePart(partNumber);
+    }
+    // Prepare metadata
     const imageData = {
       file_path: objectUrl,
       file_name: fileName,
@@ -53,103 +41,89 @@ async function processFile(filePath, fileName, partNumber = null) {
       image_size: fs.statSync(filePath).size,
       captured_at: new Date().toISOString(),
       bucket_name: process.env.MINIO_BUCKET,
-      part_id: null,
+      part_id,
       camera_id: null,
-      resolution: '1920x1080',
-      capture_mode: 'Auto',
+      resolution: resolution,
+      capture_mode: captureMode,
       notes: 'Uploaded via Node.js watcher'
     };
-
-    // Save metadata to PostgreSQL
-    await saveToPostgres(imageData);
+    // Save metadata to PostgreSQL, always pass partNumber
+    await saveToPostgres(imageData, partNumber);
     uploadedSet.add(fileName);
-
-  // Optional: Delete local file after successful upload and DB save
-  // fs.unlinkSync(filePath); // Commented out: Do not delete file after upload
-  console.log(`✅ Uploaded and saved metadata for ${fileName}`);
-  // console.log(`🗑️ Deleted local file: ${filePath}`);
-
+    console.log(`✅ Uploaded and saved metadata for ${fileName}`);
+    return true;
   } catch (err) {
     console.error(`❌ Failed to process ${fileName}:`, err.message);
+    return false;
   }
 }
 
-/**
- * Start watching the folder for new files
- */
 async function startWatcher() {
-  try {
-    await connectDB();
-    console.log(`👀 Watching folder: ${WATCH_FOLDER}`);
+  await connectDB();
+  console.log(`👀 Watching folder: ${WATCH_FOLDER}`);
 
-    const watcher = chokidar.watch(WATCH_FOLDER, {
-      ignored: /(^|[\/\\])\../, // ignore dotfiles
-      persistent: true,
-      awaitWriteFinish: true,
+  const watcher = chokidar.watch(WATCH_FOLDER, {
+    ignored: /(^|[\/\\])\../,
+    persistent: true,
+    awaitWriteFinish: true,
+    depth: 2
+  });
 
-      depth: 2 // allow folder detection one level deep
-    });
+  watcher.on('add', async (filePath) => {
+    const parentDir = path.dirname(filePath);
+    const fileName = path.basename(filePath);
 
-    // Handle single image file addition
-    watcher.on('add', async (filePath) => {
-      const parentDir = path.dirname(filePath);
-      const fileName = path.basename(filePath);
-      // If file is directly in WATCH_FOLDER, treat as single image
-      if (parentDir === path.resolve(WATCH_FOLDER)) {
-        console.log(`Detected new image: ${fileName} in root folder.`);
-        await processFile(filePath, fileName);
-      } else {
-        // If file is inside a folder, treat folder name as part number
-        const partNumber = path.basename(parentDir);
-        console.log(`Detected new image: ${fileName} in folder ${partNumber}.`);
-        await processFile(filePath, fileName, partNumber);
+    if (parentDir === path.resolve(WATCH_FOLDER)) {
+      await processFile(filePath, fileName);
+    } else {
+      const partNumber = path.basename(parentDir);
+      await processFile(filePath, fileName, partNumber);
+    }
+  });
+
+  watcher.on('addDir', async (folderPath) => {
+    const partNumber = path.basename(folderPath);
+    fs.readdir(folderPath, async (err, files) => {
+      if (err) return;
+      for (const file of files) {
+        const imagePath = path.join(folderPath, file);
+        if (fs.statSync(imagePath).isFile()) {
+          await processFile(imagePath, file, partNumber);
+        }
       }
     });
+    watcher.add(folderPath + '/**/*');
+  });
 
-    // Handle new folder addition (batch upload)
-    watcher.on('addDir', async (folderPath) => {
-      const partNumber = path.basename(folderPath);
-      fs.readdir(folderPath, async (err, files) => {
-        if (err) return;
-        for (const file of files) {
-          const imagePath = path.join(folderPath, file);
-          if (fs.statSync(imagePath).isFile()) {
-            console.log(`Detected image in new folder: ${file} (part: ${partNumber})`);
-            await processFile(imagePath, file, partNumber);
-          }
-        }
-      });
-      // Also watch for new files added to this folder after creation
-      watcher.add(folderPath + '/**/*');
-    });
-
-    // On startup, scan all files in watched_images and subfolders for missed uploads
-    watcher.on('ready', async () => {
-      console.log('Watcher is ready. Scanning for missed files...');
-      const walk = (dir) => {
-        fs.readdirSync(dir).forEach(file => {
-          const fullPath = path.join(dir, file);
-          if (fs.statSync(fullPath).isDirectory()) {
-            walk(fullPath);
+  watcher.on('ready', async () => {
+    console.log('✅ Watcher started. Scanning for missed files...');
+    let newFilesUploaded = 0;
+    const walk = async (dir) => {
+      for (const file of fs.readdirSync(dir)) {
+        const fullPath = path.join(dir, file);
+        if (fs.statSync(fullPath).isDirectory()) {
+          await walk(fullPath);
+        } else {
+          const parentDir = path.dirname(fullPath);
+          const fileName = path.basename(fullPath);
+          let uploaded;
+          if (parentDir === path.resolve(WATCH_FOLDER)) {
+            uploaded = await processFile(fullPath, fileName);
           } else {
-            const parentDir = path.dirname(fullPath);
-            const fileName = path.basename(fullPath);
-            if (parentDir === path.resolve(WATCH_FOLDER)) {
-              processFile(fullPath, fileName);
-            } else {
-              const partNumber = path.basename(parentDir);
-              processFile(fullPath, fileName, partNumber);
-            }
+            const partNumber = path.basename(parentDir);
+            uploaded = await processFile(fullPath, fileName, partNumber);
           }
-        });
-      };
-      walk(WATCH_FOLDER);
-    });
-
-    console.log('✅ Watcher started successfully.');
-  } catch (err) {
-    console.error('❌ Failed to start watcher:', err.message);
-  }
+          if (uploaded) newFilesUploaded++;
+        }
+      }
+    };
+    await walk(WATCH_FOLDER);
+    if (newFilesUploaded === 0) {
+      console.log('No new files to upload. All files are already in the database.');
+    } else {
+      console.log(`${newFilesUploaded} new files uploaded.`);
+    }
+  });
 }
 
 startWatcher();
