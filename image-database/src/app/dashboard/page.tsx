@@ -1,97 +1,107 @@
-// src/app/dashboard/page.tsx - Fixed Part Number Display
-'use client';
+// src/app/dashboard/page.tsx - Fixed for MinIO folder structure
+"use client";
 
-import { useUser, SignInButton } from '@clerk/nextjs';
-import { useState, useEffect } from 'react';
+import { SignInButton, useUser } from "@clerk/nextjs";
+import { useEffect, useState } from "react";
 import {
-  DashboardNavigation,
   DashboardHeader,
+  DashboardNavigation,
   ErrorAlert,
-  StatisticsCards,
-  TabNavigation,
   ImagesTable,
   QuickActions,
+  StatisticsCards,
   SystemStatus,
+  TabNavigation,
   type ImageData,
-  type Statistics
-} from '../components/DashboardUI';
+  type Statistics,
+} from "../components/DashboardUI";
 
 // API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 export default function Dashboard() {
   const { isLoaded, isSignedIn, user } = useUser();
-  
+
   // State management
-  const [activeTab, setActiveTab] = useState('recent');
+  const [activeTab, setActiveTab] = useState("recent");
   const [images, setImages] = useState<ImageData[]>([]);
   const [statistics, setStatistics] = useState<Statistics>({
     totalImages: 0,
-    totalSize: '0 MB',
-    lastUpload: 'No uploads yet',
-    processingQueue: 0
+    totalSize: "0 MB",
+    lastUpload: "No uploads yet",
+    processingQueue: 0,
   });
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
   // API Functions
   const fetchAllImages = async (): Promise<ImageData[]> => {
     try {
-      console.log('Fetching images from:', `${API_BASE_URL}/images`);
+      console.log("Fetching images from:", `${API_BASE_URL}/images`);
       const response = await fetch(`${API_BASE_URL}/images`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      console.log('Raw API response:', data);
-      
+      console.log("Raw API response:", data);
+
       // Process and format the data properly
       const processedData = data.map((item: any) => {
-        console.log('Processing item:', item);
-        
+        console.log("Processing item:", item);
+
         // Extract part number from multiple possible fields
-        const partNumber = item.part_number || 
-                          item.partNumber || 
-                          item.part_name || 
-                          item.partName || 
-                          extractPartNumberFromNotes(item.notes) ||
-                          `PART-${item.image_id || item.id}`;
-        
+        const partNumber =
+          item.part_number ||
+          item.partNumber ||
+          item.part_name ||
+          item.partName ||
+          extractPartNumberFromNotes(item.notes) ||
+          `PART-${item.image_id || item.id}`;
+
         // Extract part name
-        const partName = item.part_name || 
-                        item.partName || 
-                        item.part_number || 
-                        item.partNumber ||
-                        'Unknown Part';
-        
+        const partName =
+          item.part_name ||
+          item.partName ||
+          item.part_number ||
+          item.partNumber ||
+          "Unknown Part";
+
         const processedItem = {
           image_id: item.image_id || item.id,
           file_name: item.file_name || item.filename,
           file_path: item.file_path,
-          file_type: item.file_type || 'image/jpeg',
+          file_type: item.file_type || "image/jpeg",
           image_size: item.image_size || 0,
           captured_at: item.captured_at || new Date().toISOString(),
-          bucket_name: item.bucket_name || 'images',
+          bucket_name: item.bucket_name || "images",
           part_name: partName,
           part_number: partNumber,
-          device_model: item.device_model || 'Unknown Camera',
-          location: item.location || 'Unknown Location',
-          serial_number: item.serial_number || 'Unknown Serial',
-          resolution: item.resolution || '1920x1080',
-          capture_mode: item.capture_mode || 'Auto',
-          notes: item.notes || ''
+          device_model: item.device_model || "Unknown Camera",
+          location: item.location || "Unknown Location",
+          serial_number: item.serial_number || "Unknown Serial",
+          resolution: item.resolution || "1920x1080",
+          capture_mode: item.capture_mode || "Auto",
+          notes: item.notes || "",
         };
-        
-        console.log('Processed item with part number:', processedItem.part_number);
+
+        console.log(
+          "Processed item with part number:",
+          processedItem.part_number
+        );
         return processedItem;
       });
-      
-      console.log('Processed images with part numbers:', processedData);
+
+      console.log("Processed images with part numbers:", processedData);
       return processedData;
     } catch (error) {
-      console.error('Error fetching images:', error);
-      setApiError(`Failed to fetch images: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Error fetching images:", error);
+      setApiError(
+        `Failed to fetch images: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
       return [];
     }
   };
@@ -99,19 +109,19 @@ export default function Dashboard() {
   // Helper function to extract part number from notes field
   const extractPartNumberFromNotes = (notes: string): string | null => {
     if (!notes) return null;
-    
+
     // Look for patterns like "Part: ABC123" in notes
     const partMatch = notes.match(/Part:\s*([A-Za-z0-9\-_]+)/i);
     if (partMatch) {
       return partMatch[1];
     }
-    
+
     // Look for patterns like "PN: ABC123" or "P/N: ABC123"
     const pnMatch = notes.match(/P\/?N:\s*([A-Za-z0-9\-_]+)/i);
     if (pnMatch) {
       return pnMatch[1];
     }
-    
+
     return null;
   };
 
@@ -122,10 +132,10 @@ export default function Dashboard() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      console.log('Single image data:', data);
+      console.log("Single image data:", data);
       return data;
     } catch (error) {
-      console.error('Error fetching image:', error);
+      console.error("Error fetching image:", error);
       return null;
     }
   };
@@ -133,7 +143,7 @@ export default function Dashboard() {
   const deleteImageById = async (id: number): Promise<any | null> => {
     try {
       const response = await fetch(`${API_BASE_URL}/images/${id}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -141,77 +151,121 @@ export default function Dashboard() {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error deleting image:', error);
-      setApiError('Failed to delete image');
+      console.error("Error deleting image:", error);
+      setApiError("Failed to delete image");
       return null;
     }
   };
 
-  // Generate image preview URL
+  // Generate image preview URL - FIXED for folder structure
   const getImagePreviewUrl = (image: ImageData): string => {
-    return `${API_BASE_URL}/images/download/${image.image_id}`;
+    // Extract part number to construct the correct MinIO path
+    const partNumber =
+      image.part_number ||
+      extractPartNumberFromPath(image.file_path) ||
+      "unknown";
+
+    // Clean bucket name (replace underscores with hyphens if needed)
+    const cleanBucketName = image.bucket_name.replace(/_/g, "-");
+
+    // Build the correct MinIO URL with folder structure
+    // Format: http://localhost:9000/bucket-name/part-number/filename.jpg
+    const encodedFileName = encodeURIComponent(image.file_name);
+    const minioBaseUrl =
+      process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000";
+
+    return `${minioBaseUrl}/${cleanBucketName}/${partNumber}/${encodedFileName}`;
   };
 
-  // Download image function
+  // Helper function to extract part number from file path
+  const extractPartNumberFromPath = (filePath: string): string | null => {
+    if (!filePath) return null;
+
+    // Try to extract part number from path like "part-number/filename.jpg"
+    const pathParts = filePath.split("/");
+    if (pathParts.length >= 2) {
+      // Return the folder name (part number)
+      return pathParts[pathParts.length - 2];
+    }
+
+    return null;
+  };
+
+  // Download image function - FIXED for folder structure
   const downloadImage = async (image: ImageData): Promise<void> => {
     try {
-      console.log('Downloading image:', image.file_name);
-      
+      console.log("Downloading image:", image.file_name);
+
       // Show loading state
       const originalText = document.activeElement?.textContent;
       if (document.activeElement) {
-        (document.activeElement as HTMLElement).textContent = 'Downloading...';
+        (document.activeElement as HTMLElement).textContent = "Downloading...";
       }
 
-      const response = await fetch(`${API_BASE_URL}/images/download/${image.image_id}`);
-      
+      // Use the backend download endpoint instead of direct MinIO access
+      const response = await fetch(
+        `${API_BASE_URL}/images/download/${image.image_id}`
+      );
+
       if (!response.ok) {
         throw new Error(`Failed to download: ${response.status}`);
       }
 
       // Get the blob from response
       const blob = await response.blob();
-      
+
       // Create download URL
       const downloadUrl = window.URL.createObjectURL(blob);
-      
+
       // Create temporary download link
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = downloadUrl;
       link.download = image.file_name; // Use original filename
       document.body.appendChild(link);
-      
+
       // Trigger download
       link.click();
-      
+
       // Cleanup
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
-      
-      console.log('Download completed for:', image.file_name);
-      
+
+      console.log("Download completed for:", image.file_name);
+
       // Reset button text
       if (document.activeElement && originalText) {
         (document.activeElement as HTMLElement).textContent = originalText;
       }
-      
     } catch (error) {
-      console.error('Download failed:', error);
-      
+      console.error("Download failed:", error);
+
       // Reset button text
       if (document.activeElement) {
-        (document.activeElement as HTMLElement).textContent = 'Download';
+        (document.activeElement as HTMLElement).textContent = "Download";
       }
-      
+
       // Show error to user
-      alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      
-      // Fallback: try opening in new tab
+      alert(
+        `Download failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+
+      // Fallback: try direct MinIO access with folder structure
       try {
-        const fallbackUrl = `${API_BASE_URL}/images/download/${image.image_id}`;
-        window.open(fallbackUrl, '_blank');
+        const partNumber =
+          image.part_number ||
+          extractPartNumberFromPath(image.file_path) ||
+          "unknown";
+        const cleanBucketName = image.bucket_name.replace(/_/g, "-");
+        const encodedFileName = encodeURIComponent(image.file_name);
+        const minioBaseUrl =
+          process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000";
+        const fallbackUrl = `${minioBaseUrl}/${cleanBucketName}/${partNumber}/${encodedFileName}`;
+
+        window.open(fallbackUrl, "_blank");
       } catch (fallbackError) {
-        console.error('Fallback download also failed:', fallbackError);
+        console.error("Fallback download also failed:", fallbackError);
       }
     }
   };
@@ -221,24 +275,29 @@ export default function Dashboard() {
     if (!imagesData || imagesData.length === 0) {
       return {
         totalImages: 0,
-        totalSize: '0 MB',
-        lastUpload: 'No uploads yet',
-        processingQueue: 0
+        totalSize: "0 MB",
+        lastUpload: "No uploads yet",
+        processingQueue: 0,
       };
     }
 
     const totalImages = imagesData.length;
-    const totalSizeBytes = imagesData.reduce((acc: number, img: ImageData) => acc + (img.image_size || 0), 0);
-    const totalSizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(1);
-    
-    // Sort by captured_at to get the most recent
-    const sortedImages = [...imagesData].sort((a: ImageData, b: ImageData) => 
-      new Date(b.captured_at).getTime() - new Date(a.captured_at).getTime()
+    const totalSizeBytes = imagesData.reduce(
+      (acc: number, img: ImageData) => acc + (img.image_size || 0),
+      0
     );
-    const lastUpload = sortedImages.length > 0 
-      ? new Date(sortedImages[0].captured_at).toLocaleString()
-      : 'No uploads yet';
-    
+    const totalSizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(1);
+
+    // Sort by captured_at to get the most recent
+    const sortedImages = [...imagesData].sort(
+      (a: ImageData, b: ImageData) =>
+        new Date(b.captured_at).getTime() - new Date(a.captured_at).getTime()
+    );
+    const lastUpload =
+      sortedImages.length > 0
+        ? new Date(sortedImages[0].captured_at).toLocaleString()
+        : "No uploads yet";
+
     // For now, assume all images are processed
     const processingQueue = 0;
 
@@ -246,20 +305,24 @@ export default function Dashboard() {
       totalImages,
       totalSize: `${totalSizeMB} MB`,
       lastUpload,
-      processingQueue
+      processingQueue,
     };
   };
 
   // Event Handlers
   const handleDeleteImage = async (imageId: number): Promise<void> => {
-    if (window.confirm('Are you sure you want to delete this image? This action cannot be undone.')) {
+    if (
+      window.confirm(
+        "Are you sure you want to delete this image? This action cannot be undone."
+      )
+    ) {
       const result = await deleteImageById(imageId);
       if (result) {
         // Refresh the images list
         loadDashboardData();
-        
+
         // Show success message
-        const deletedImage = images.find(img => img.image_id === imageId);
+        const deletedImage = images.find((img) => img.image_id === imageId);
         if (deletedImage) {
           console.log(`Successfully deleted: ${deletedImage.file_name}`);
         }
@@ -270,9 +333,9 @@ export default function Dashboard() {
   const handleViewImage = async (imageId: number): Promise<void> => {
     const imageDetails = await fetchImageById(imageId);
     if (imageDetails) {
-      // Open image in new tab
+      // Open image in new tab using the correct folder-based URL
       const imageUrl = getImagePreviewUrl(imageDetails);
-      window.open(imageUrl, '_blank');
+      window.open(imageUrl, "_blank");
     }
   };
 
@@ -288,16 +351,16 @@ export default function Dashboard() {
   const loadDashboardData = async (): Promise<void> => {
     setLoading(true);
     setApiError(null);
-    
+
     try {
       const imagesData = await fetchAllImages();
       const stats = calculateStatistics(imagesData);
-      
+
       setImages(imagesData);
       setStatistics(stats);
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
-      setApiError('Failed to load dashboard data');
+      console.error("Error loading dashboard data:", error);
+      setApiError("Failed to load dashboard data");
     } finally {
       setLoading(false);
     }
@@ -315,7 +378,8 @@ export default function Dashboard() {
     const searchLower = searchTerm.toLowerCase();
     return (
       image.file_name.toLowerCase().includes(searchLower) ||
-      (image.part_number && image.part_number.toLowerCase().includes(searchLower)) ||
+      (image.part_number &&
+        image.part_number.toLowerCase().includes(searchLower)) ||
       (image.part_name && image.part_name.toLowerCase().includes(searchLower))
     );
   });
@@ -323,12 +387,12 @@ export default function Dashboard() {
   // Get images for current tab
   const getTabImages = () => {
     switch (activeTab) {
-      case 'recent':
+      case "recent":
         return filteredImages.slice(0, 10); // Show latest 10 images
-      case 'favorites':
+      case "favorites":
         // For now, return empty array as we don't have favorites functionality
         return [];
-      case 'pending':
+      case "pending":
         // For now, return empty array as we don't have pending status
         return [];
       default:
@@ -349,15 +413,26 @@ export default function Dashboard() {
       </div>
     );
   }
-  
+
   // Authentication required state
   if (!isSignedIn) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <div className="text-center">
-            <svg className="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            <svg
+              className="mx-auto h-12 w-12 text-gray-400"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              />
             </svg>
             <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
               Authentication Required
@@ -388,20 +463,20 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <DashboardHeader onRefresh={handleRefresh} />
-        
+
         {/* API Error Display */}
         {apiError && (
           <ErrorAlert apiError={apiError} API_BASE_URL={API_BASE_URL} />
         )}
-        
+
         {/* Statistics Cards */}
         <StatisticsCards statistics={statistics} />
 
         {/* Tab Navigation */}
-        <TabNavigation 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
-          filteredImages={filteredImages} 
+        <TabNavigation
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          filteredImages={filteredImages}
         />
 
         {/* Images Table */}
@@ -423,12 +498,12 @@ export default function Dashboard() {
         <QuickActions statistics={statistics} />
 
         {/* System Status */}
-        <SystemStatus 
-          apiError={apiError} 
-          user={user} 
-          loading={loading} 
-          statistics={statistics} 
-          API_BASE_URL={API_BASE_URL} 
+        <SystemStatus
+          apiError={apiError}
+          user={user}
+          loading={loading}
+          statistics={statistics}
+          API_BASE_URL={API_BASE_URL}
         />
       </main>
     </div>
