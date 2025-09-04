@@ -1,4 +1,4 @@
-// src/app/dashboard/page.tsx - Fixed for MinIO folder structure
+// src/app/dashboard/page.tsx - Complete Dashboard with Frontend-only fixes
 "use client";
 
 import { SignInButton, useUser } from "@clerk/nextjs";
@@ -131,6 +131,111 @@ export default function Dashboard() {
     return constructedUrl;
   };
 
+  // FRONTEND-ONLY DOWNLOAD FIX
+  const downloadImageFrontendOnly = async (image: ImageData): Promise<void> => {
+    try {
+      console.log("Starting frontend download for:", image.file_name);
+
+      // Show loading state
+      const originalText = document.activeElement?.textContent;
+      if (document.activeElement) {
+        (document.activeElement as HTMLElement).textContent = "Downloading...";
+      }
+
+      // Try direct MinIO URL first
+      let imageUrl = getImagePreviewUrl(image);
+
+      try {
+        const response = await fetch(imageUrl, {
+          method: "GET",
+          mode: "cors",
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const blob = await response.blob();
+
+        // Create download link
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = image.file_name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+
+        console.log("Direct download successful:", image.file_name);
+      } catch (directError) {
+        console.warn(
+          "Direct download failed, trying alternative URL:",
+          directError
+        );
+
+        // Try without folder structure as fallback
+        const minioBaseUrl =
+          process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000";
+        const cleanBucketName = (image.bucket_name || "images").replace(
+          /_/g,
+          "-"
+        );
+        const encodedFileName = encodeURIComponent(image.file_name);
+        const fallbackUrl = `${minioBaseUrl}/${cleanBucketName}/${encodedFileName}`;
+
+        try {
+          const fallbackResponse = await fetch(fallbackUrl, {
+            method: "GET",
+            mode: "cors",
+          });
+
+          if (!fallbackResponse.ok) {
+            throw new Error(`HTTP ${fallbackResponse.status}`);
+          }
+
+          const blob = await fallbackResponse.blob();
+          const downloadUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = downloadUrl;
+          link.download = image.file_name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(downloadUrl);
+
+          console.log("Fallback download successful:", image.file_name);
+        } catch (fallbackError) {
+          console.error("All download methods failed:", fallbackError);
+
+          // Last resort: open in new tab
+          window.open(imageUrl, "_blank");
+          alert(
+            "Direct download failed. The image will open in a new tab. Right-click and save to download."
+          );
+        }
+      }
+
+      // Reset button text
+      if (document.activeElement && originalText) {
+        (document.activeElement as HTMLElement).textContent = originalText;
+      }
+    } catch (error) {
+      console.error("Download process failed:", error);
+
+      // Reset button text
+      if (document.activeElement) {
+        (document.activeElement as HTMLElement).textContent = "Download";
+      }
+
+      alert(
+        `Download failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  };
+
   // API Functions
   const fetchAllImages = async (): Promise<ImageData[]> => {
     try {
@@ -238,77 +343,6 @@ export default function Dashboard() {
     }
   };
 
-  // Fixed download function for folder structure
-  const downloadImage = async (image: ImageData): Promise<void> => {
-    try {
-      console.log("Downloading image:", image.file_name);
-
-      // Show loading state
-      const originalText = document.activeElement?.textContent;
-      if (document.activeElement) {
-        (document.activeElement as HTMLElement).textContent = "Downloading...";
-      }
-
-      // Use the backend download endpoint instead of direct MinIO access
-      const response = await fetch(
-        `${API_BASE_URL}/images/download/${image.image_id}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to download: ${response.status}`);
-      }
-
-      // Get the blob from response
-      const blob = await response.blob();
-
-      // Create download URL
-      const downloadUrl = window.URL.createObjectURL(blob);
-
-      // Create temporary download link
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = image.file_name; // Use original filename
-      document.body.appendChild(link);
-
-      // Trigger download
-      link.click();
-
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
-
-      console.log("Download completed for:", image.file_name);
-
-      // Reset button text
-      if (document.activeElement && originalText) {
-        (document.activeElement as HTMLElement).textContent = originalText;
-      }
-    } catch (error) {
-      console.error("Download failed:", error);
-
-      // Reset button text
-      if (document.activeElement) {
-        (document.activeElement as HTMLElement).textContent = "Download";
-      }
-
-      // Show error to user
-      alert(
-        `Download failed: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
-
-      // Fallback: try direct MinIO access with folder structure
-      try {
-        const fallbackUrl = getImagePreviewUrl(image);
-        console.log("Trying fallback URL:", fallbackUrl);
-        window.open(fallbackUrl, "_blank");
-      } catch (fallbackError) {
-        console.error("Fallback download also failed:", fallbackError);
-      }
-    }
-  };
-
   // Calculate statistics from images data
   const calculateStatistics = (imagesData: ImageData[]): Statistics => {
     if (!imagesData || imagesData.length === 0) {
@@ -380,7 +414,7 @@ export default function Dashboard() {
   };
 
   const handleDownloadImage = async (image: ImageData): Promise<void> => {
-    await downloadImage(image);
+    await downloadImageFrontendOnly(image);
   };
 
   const handleRefresh = (): void => {
