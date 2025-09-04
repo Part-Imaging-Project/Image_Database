@@ -95,12 +95,38 @@ app.post('/upload-folder', upload.array('files'), async (req, res) => {
     for (const file of req.files) {
       const tempPath = file.path; // temp file saved by Multer
       const originalName = file.originalname;
+        const fileType = file.mimetype.split('/')[1] || 'unknown';
+        const imageSize = file.size;
+        const bucketName = 'part-images'; // adjust if needed
+        const part_id = req.body.part_id || null;
+        const camera_id = req.body.camera_id || null;
+        const resolution = req.body.resolution || 'unknown';
+        const capture_mode = req.body.capture_mode || 'unknown';
+        const notes = req.body.notes || null;
 
       try {
         // ✅ Pass to your existing uploadToMinIO (works with filePath)
         const objectUrl = await uploadToMinIO(tempPath, originalName, partNumber);
 
         results.push({ file: originalName, objectUrl });
+
+          // Save metadata to PostgreSQL for each file
+          try {
+            const imageInsertQuery = `INSERT INTO images (file_path, file_name, file_type, image_size, captured_at, bucket_name, part_id, camera_id)
+              VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7) RETURNING id`;
+            const imageInsertValues = [objectUrl, originalName, fileType, imageSize, bucketName, part_id, camera_id];
+            const imageResult = await pool.query(imageInsertQuery, imageInsertValues);
+            const imageId = imageResult.rows[0].id;
+
+            const metadataInsertQuery = `INSERT INTO metadata (image_id, resolution, capture_mode, notes)
+              VALUES ($1, $2, $3, $4)`;
+            const metadataInsertValues = [imageId, resolution, capture_mode, notes];
+            await pool.query(metadataInsertQuery, metadataInsertValues);
+
+            console.log(`Metadata saved for image ${originalName}`);
+          } catch (err) {
+            console.error('Error saving metadata to PostgreSQL:', err);
+          }
       } finally {
         // Clean up temp file
         fs.unlinkSync(tempPath);
