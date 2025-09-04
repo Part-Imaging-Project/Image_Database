@@ -12,22 +12,24 @@ const uploadedSet = new Set();
 
 async function processFile(filePath, fileName, partNumber = null) {
   try {
-    if (uploadedSet.has(fileName)) {
-      console.log(`🟡 Already processed in this session: ${fileName}`);
+    // Replace spaces with underscores in fileName for URL and storage naming only
+    const safeFileName = fileName.replace(/ /g, '_');
+    if (uploadedSet.has(safeFileName)) {
+      console.log(`🟡 Already processed in this session: ${safeFileName}`);
       return false;
     }
     // Check if already exists in DB
     const { client } = require('./postgresDb');
     const checkQuery = 'SELECT 1 FROM images WHERE file_name = $1';
-    const checkResult = await client.query(checkQuery, [fileName]);
+    const checkResult = await client.query(checkQuery, [safeFileName]);
     if (checkResult.rowCount > 0) {
-      console.log(`� Duplicate detected in DB: Skipping ${fileName}`);
-      uploadedSet.add(fileName);
+      console.log(`� Duplicate detected in DB: Skipping ${safeFileName}`);
+      uploadedSet.add(safeFileName);
       return false;
     }
-    console.log(`�📂 Processing new file: ${fileName}`);
+    console.log(`�📂 Processing new file: ${safeFileName}`);
     // Upload to MinIO and get metadata
-    const { objectUrl, resolution, captureMode } = await uploadToMinIO(filePath, fileName, partNumber);
+    const { objectUrl, resolution, captureMode } = await uploadToMinIO(filePath, safeFileName, partNumber);
     // Get part_id from DB
     let part_id = null;
     if (partNumber) {
@@ -36,7 +38,7 @@ async function processFile(filePath, fileName, partNumber = null) {
     // Prepare metadata
     const imageData = {
       file_path: objectUrl,
-      file_name: fileName,
+      file_name: safeFileName,
       file_type: mime.lookup(filePath) || 'application/octet-stream',
       image_size: fs.statSync(filePath).size,
       captured_at: new Date().toISOString(),
@@ -49,8 +51,8 @@ async function processFile(filePath, fileName, partNumber = null) {
     };
     // Save metadata to PostgreSQL, always pass partNumber
     await saveToPostgres(imageData, partNumber);
-    uploadedSet.add(fileName);
-    console.log(`✅ Uploaded and saved metadata for ${fileName}`);
+    uploadedSet.add(safeFileName);
+    console.log(`✅ Uploaded and saved metadata for ${safeFileName}`);
     return true;
   } catch (err) {
     console.error(`❌ Failed to process ${fileName}:`, err.message);
