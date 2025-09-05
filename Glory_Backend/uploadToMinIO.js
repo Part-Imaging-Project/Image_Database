@@ -32,8 +32,8 @@ async function uploadToMinIO(filePath, fileName, partNumber = null) {
   }
 
   // Build key (object name) → keep files under partNumber folder if provided
-  const encodedFileName = encodeURIComponent(fileName);
-  const objectKey = partNumber ? `${partNumber}/${encodedFileName}` : encodedFileName;
+  // Use fileName as-is (already sanitized in backend)
+  const objectKey = partNumber ? `${partNumber}/${fileName}` : fileName;
 
   // Extract resolution using image-size
   let resolution = null;
@@ -63,8 +63,8 @@ async function uploadToMinIO(filePath, fileName, partNumber = null) {
   await minioClient.fPutObject(bucketName, objectKey, filePath);
   console.log(`⬆️ Uploaded ${fileName} to ${bucketName}/${objectKey}`);
 
-  // Build public URL (do NOT encode the whole link)
-  const objectUrl = `${process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http'}://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${bucketName}/${partNumber ? partNumber + '/' : ''}${encodedFileName}`;
+  // Build public URL 
+  const objectUrl = `${process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http'}://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${bucketName}/${partNumber ? partNumber + '/' : ''}${fileName}`;
 
   // Return objectUrl and extracted metadata for DB insert
   return { objectUrl, resolution, captureMode };

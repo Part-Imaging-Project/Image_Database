@@ -12,8 +12,8 @@ const uploadedSet = new Set();
 
 async function processFile(filePath, fileName, partNumber = null) {
   try {
-    // Replace spaces with underscores in fileName for URL and storage naming only
-    const safeFileName = fileName.replace(/ /g, '_');
+    // To replace spaces with underscores in fileName for URL and storage naming only
+  const safeFileName = fileName.replace(/\s+/g, '_');
     if (uploadedSet.has(safeFileName)) {
       console.log(`🟡 Already processed in this session: ${safeFileName}`);
       return false;

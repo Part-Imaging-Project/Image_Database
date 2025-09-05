@@ -41,13 +41,13 @@ select * from parts;
 select * from camera;
 select * from metadata;
 
-INSERT INTO part (part_name, part_number, description)
+INSERT INTO parts (part_name, part_number, description)
 VALUES ('Sample Part', 'SP001', 'This is a sample part.');
 
 INSERT INTO camera (device_model, location, serial_number)
 VALUES ('Beckhoff Camera 1080p', 'Assembly Line A', 'CAM001');
 
-INSERT INTO image (file_path, file_name, file_type, image_size, captured_at, part_id, camera_id)
+INSERT INTO images (file_path, file_name, file_type, image_size, captured_at, part_id, camera_id)
 VALUES ('http://localhost:9000/part-images/sample.jpg', 'sample.jpg', 'JPEG', 123456, NOW(), 1, 1);
 
 INSERT INTO metadata (image_id, resolution, capture_mode, notes)
