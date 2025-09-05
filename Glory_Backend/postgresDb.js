@@ -8,7 +8,7 @@ const client = new Client({
   user: process.env.PG_USER,
   password: process.env.PG_PASSWORD,
   database: process.env.PG_DATABASE,
-  ssl: false // no need for SSL in local development
+  ssl: false 
 });
 
 // Connect to database
@@ -105,7 +105,7 @@ const saveToPostgres = async (imageData, partNumber = null) => {
       RETURNING *;
     `;
     const metadataValues = [
-      imageResult.rows[0].id, // Use the ID of the newly inserted image
+      imageResult.rows[0].id, // this uses the ID of the newly inserted image
       imageData.resolution,
       imageData.capture_mode,
       imageData.notes
@@ -210,5 +210,6 @@ module.exports = {
   getImagesByPartNumber,
   updateImage,
   deleteImage,
+  ensurePart,
   ensurePart
 };

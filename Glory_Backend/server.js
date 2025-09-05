@@ -8,8 +8,18 @@ const { uploadToMinIO } = require('./uploadToMinIO');
 const { client, connectDB, saveToPostgres, getImages, deleteImage, updateImage, getImagesByPartNumber } = require('./postgresDb');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const { Client: MinioClient } = require('minio'); // Add MinIO import
+const { Client: MinioClient } = require('minio'); 
 const port = process.env.SERVER_PORT || 8000;
+
+require('dotenv').config();
+const { Pool } = require('pg');
+const pool = new Pool({
+  user: process.env.PG_USER,
+  host: process.env.PG_HOST,
+  database: process.env.PG_DATABASE,
+  password: process.env.PG_PASSWORD,
+  port: process.env.PG_PORT,
+});
 
 // MinIO client setup
 const minioClient = new MinioClient({
@@ -23,7 +33,6 @@ const BUCKET_NAME = process.env.MINIO_BUCKET
 
 
 
-
 // Middleware setup
 app.use(cors());
 app.use(express.json());
@@ -31,19 +40,37 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Root endpoint
+// Debug endpoint to print connection config and current database
+app.get('/debug-db', async (req, res) => {
+  try {
+    const config = {
+      PG_DB: process.env.PG_DB,
+      PG_USER: process.env.PG_USER,
+      PG_PASSWORD: process.env.PG_PASSWORD,
+      PG_HOST: process.env.PG_HOST,
+      PG_PORT: process.env.PG_PORT
+    };
+    // Query current database name
+    const dbResult = await pool.query('SELECT current_database()');
+    res.json({
+      envConfig: config,
+      currentDatabase: dbResult.rows[0].current_database
+    });
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
 app.get('/', (req, res) => {
-    res.send('📷 MinIO + PostgreSQL Image Database Service');
+    // Quick test: check if images table is accessible
+    pool.query('SELECT * FROM images LIMIT 1')
+      .then(result => {
+        res.send('📷 MinIO + PostgreSQL Image Database Service<br><br>images table test: <pre>' + JSON.stringify(result.rows, null, 2) + '</pre>');
+      })
+      .catch(err => {
+        res.send('📷 MinIO + PostgreSQL Image Database Service<br><br>images table test error: <pre>' + err.message + '</pre>');
+      });
 });
 
-// Test endpoint
-app.get('/image', (req, res) => {
-    const imageData = {
-        id: 1,
-        imageUrl: 'https://example.com/image.jpg ',
-        description: 'Sample image'
-    };
-    res.json(imageData);
-});
 
 // Combined route: GET /images (all images) or GET /images?part_number=XYZ123 (filtered by part number)
 app.get('/images', async (req, res) => {
@@ -89,18 +116,64 @@ app.post('/upload-folder', upload.array('files'), async (req, res) => {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
     }
-  const partNumber = req.body.part_number || 'unknown-part';
+  // If part_number is not provided, use folder name from req.body.folder_name (or similar)
+  let partNumber = req.body.part_number;
+  if (!partNumber && req.body.folder_name) {
+    partNumber = req.body.folder_name.replace(/\s+/g, '_');
+  }
+  if (!partNumber) {
+    partNumber = 'unknown-part';
+  }
+  console.log('DEBUG: Using partNumber for upload:', partNumber);
     let results = [];
 
     for (const file of req.files) {
       const tempPath = file.path; // temp file saved by Multer
       const originalName = file.originalname;
-
+  // to replace spaces with underscores in filenames
+  const safeFileName = originalName.replace(/\s+/g, '_');
+    const fileType = file.mimetype.split('/')[1] || 'unknown';
+    const imageSize = file.size;
+    const bucketName = 'part-images';
+    // check or create the part using part_number, and use its ID
+    let part_id = null;
+    if (req.body.part_number) {
       try {
-        // ✅ Pass to your existing uploadToMinIO (works with filePath)
-        const objectUrl = await uploadToMinIO(tempPath, originalName, partNumber);
+        const { ensurePart } = require('./postgresDb');
+        part_id = await ensurePart(req.body.part_number);
+      } catch (err) {
+        console.error('Error ensuring part:', err.message);
+        part_id = null;
+      }
+    }
+    //const camera_id = req.body.camera_id || null;
+    const resolution = req.body.resolution || 'unknown';
+    const capture_mode = req.body.capture_mode || 'unknown';
+    const notes = req.body.notes || null;
+    let objectUrl;
+    try {
+      // Use safeFileName for upload and URL
+  const minioResult = await uploadToMinIO(tempPath, safeFileName, partNumber);
+  objectUrl = minioResult.objectUrl;
+  results.push({ file: safeFileName, objectUrl });
 
-        results.push({ file: originalName, objectUrl });
+      // Save metadata to PostgreSQL for each file
+  try {
+        const imageInsertQuery = `INSERT INTO images (file_path, file_name, file_type, image_size, captured_at, bucket_name, part_id)
+          VALUES ($1, $2, $3, $4, NOW(), $5, $6) RETURNING id`;
+  const imageInsertValues = [objectUrl, safeFileName, fileType, imageSize, bucketName, part_id];
+        const imageResult = await pool.query(imageInsertQuery, imageInsertValues);
+        const imageId = imageResult.rows[0].id;
+
+        const metadataInsertQuery = `INSERT INTO metadata (image_id, resolution, capture_mode, notes)
+          VALUES ($1, $2, $3, $4)`;
+        const metadataInsertValues = [imageId, resolution, capture_mode, notes];
+        await pool.query(metadataInsertQuery, metadataInsertValues);
+
+        console.log(`Metadata saved for image ${safeFileName}`);
+      } catch (err) {
+        console.error('Error saving metadata to PostgreSQL:', err);
+      }
       } finally {
         // Clean up temp file
         fs.unlinkSync(tempPath);
@@ -114,10 +187,10 @@ app.post('/upload-folder', upload.array('files'), async (req, res) => {
   }
 });
 
-// Move these above /images/:id
+
 app.get('/images/stats', async (req, res) => {
   try {
-    const count = await client.query('SELECT COUNT(*) FROM images'); // Correct table name
+    const count = await client.query('SELECT COUNT(*) FROM images');
     const recent = await client.query('SELECT * FROM images ORDER BY captured_at DESC LIMIT 5');
     res.json({
       total_images: parseInt(count.rows[0].count),
@@ -145,7 +218,7 @@ app.get('/images/download/:id', async (req, res) => {
   }
 });
 
-// Place this route AFTER all specific /images routes
+//fetch images by id
 app.get('/images/:id', async (req, res) => {
     const { id } = req.params;
     try {
