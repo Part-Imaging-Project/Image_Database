@@ -1,8 +1,8 @@
-// src/app/upload/page.tsx - Logic only, UI in components
+// src/app/upload/page.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
 import { SignInButton, useUser } from "@clerk/nextjs";
+import React, { useState } from "react";
 import {
   ProTips,
   SelectedFilesDisplay,
@@ -15,11 +15,9 @@ import {
   type UploadFormData,
 } from "../components/UploadUI";
 
-// API configuration
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-// Type definitions
 interface UploadResponse {
   success: boolean;
   message: string;
@@ -40,7 +38,6 @@ interface BackendUploadResponse {
 export default function Upload() {
   const { isLoaded, isSignedIn, user } = useUser();
 
-  // State management
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -48,34 +45,11 @@ export default function Upload() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadDetails, setUploadDetails] = useState<string>("");
-  const [backendStatus, setBackendStatus] = useState<
-    "checking" | "connected" | "disconnected"
-  >("checking");
   const [formData, setFormData] = useState<UploadFormData>({
     partNumber: "",
     notes: "",
   });
 
-  // Check backend connection on component mount
-  useEffect(() => {
-    checkBackendConnection();
-  }, []);
-
-  // Backend connection check
-  const checkBackendConnection = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-      setBackendStatus(response.ok ? "connected" : "disconnected");
-    } catch (error) {
-      console.error("Backend connection check failed:", error);
-      setBackendStatus("disconnected");
-    }
-  };
-
-  // Upload to server function
   const uploadToServer = async (
     files: File[],
     metadata: UploadFormData
@@ -94,10 +68,8 @@ export default function Upload() {
       );
       setUploadDetails(`Preparing ${files.length} files for upload...`);
 
-      // Create FormData - matches backend multer setup
       const formDataToSend = new FormData();
 
-      // Add files with key 'files' (multer expects upload.array('files'))
       files.forEach((file, index) => {
         formDataToSend.append("files", file);
         console.log(
@@ -108,20 +80,35 @@ export default function Upload() {
         );
       });
 
-      // Add metadata
       formDataToSend.append("part_number", metadata.partNumber.trim());
+
       if (metadata.notes && metadata.notes.trim()) {
         formDataToSend.append("notes", metadata.notes.trim());
       }
 
+      formDataToSend.append("resolution", "1920x1080");
+      formDataToSend.append("capture_mode", "Manual Upload");
+
+      console.log("FormData contents being sent:");
+      for (let [key, value] of formDataToSend.entries()) {
+        if (value instanceof File) {
+          console.log(
+            `${key}: File - ${value.name} (${value.size} bytes, ${value.type})`
+          );
+        } else {
+          console.log(`${key}: ${value}`);
+        }
+      }
+
       setUploadDetails(`Uploading ${files.length} files to server...`);
 
-      // Upload request with timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
         setUploadDetails("Upload timed out after 10 minutes");
-      }, 600000); // 10 minute timeout
+      }, 600000);
+
+      console.log(`Making POST request to: ${API_BASE_URL}/upload-folder`);
 
       const response = await fetch(`${API_BASE_URL}/upload-folder`, {
         method: "POST",
@@ -134,7 +121,7 @@ export default function Upload() {
       console.log("Upload response status:", response.status);
 
       if (!response.ok) {
-        let errorMessage = `Upload failed with status ${response.status}`;
+        let errorMessage = `Upload failed with HTTP ${response.status}`;
 
         try {
           const errorText = await response.text();
@@ -145,65 +132,81 @@ export default function Upload() {
               const errorJson = JSON.parse(errorText);
               errorMessage = errorJson.error || errorJson.message || errorText;
             } catch {
-              errorMessage = errorText;
+              errorMessage = errorText.substring(0, 200);
             }
           }
         } catch (readError) {
           console.warn("Could not read error response:", readError);
         }
 
-        // Specific error messages for common status codes
-        if (response.status === 413) {
-          errorMessage =
-            "Files too large. Try uploading fewer or smaller files.";
-        } else if (response.status === 400) {
-          errorMessage =
-            errorMessage ||
-            "Invalid request. Please check your files and part number.";
-        } else if (response.status === 500) {
-          errorMessage =
-            errorMessage || "Server error during upload. Please try again.";
+        switch (response.status) {
+          case 400:
+            errorMessage = `Bad Request: ${errorMessage}. Check if all required fields are provided.`;
+            break;
+          case 404:
+            errorMessage =
+              "Upload endpoint not found. Please verify backend is running on the correct port.";
+            break;
+          case 413:
+            errorMessage =
+              "Files too large. Try uploading fewer or smaller files.";
+            break;
+          case 500:
+            errorMessage = `Server error: ${errorMessage}. Check backend logs for details.`;
+            break;
         }
 
         throw new Error(errorMessage);
       }
 
-      // Parse successful response
       let result: BackendUploadResponse;
       try {
         const responseText = await response.text();
         console.log("Success response body:", responseText);
+
+        if (!responseText || responseText.trim() === "") {
+          throw new Error("Empty response from server");
+        }
+
         result = JSON.parse(responseText);
+        console.log("Parsed upload result:", result);
       } catch (parseError) {
         console.error("Failed to parse response JSON:", parseError);
+        throw new Error(
+          `Server returned invalid JSON response. Parse error: ${parseError}`
+        );
+      }
+
+      if (!result || typeof result !== "object") {
         throw new Error("Server returned invalid response format");
       }
 
-      console.log("Upload successful:", result);
+      const successCount = result.uploaded?.length || files.length;
+      const partNumber = result.partNumber || metadata.partNumber;
 
-      if (!result.uploaded || !Array.isArray(result.uploaded)) {
-        console.warn("Unexpected response structure:", result);
-        throw new Error("Server returned unexpected response format");
-      }
-
-      const successCount = result.uploaded.length;
       setUploadDetails(`Successfully uploaded ${successCount} files`);
 
-      result.uploaded.forEach((item, index) => {
-        console.log(
-          `Uploaded file ${index + 1}: ${item.file} -> ${item.objectUrl}`
-        );
-      });
+      if (result.uploaded && Array.isArray(result.uploaded)) {
+        result.uploaded.forEach((item, index) => {
+          console.log(
+            `Uploaded file ${index + 1}: ${item.file} -> ${
+              item.objectUrl || "stored successfully"
+            }`
+          );
+        });
+      }
 
       return {
         success: true,
-        message: `Successfully uploaded ${successCount} files for part ${result.partNumber}`,
+        message: `Successfully uploaded ${successCount} files for part ${partNumber}`,
         data: result,
-        uploaded: result.uploaded,
-        partNumber: result.partNumber,
+        uploaded:
+          result.uploaded ||
+          files.map((f) => ({ file: f.name, objectUrl: "" })),
+        partNumber: partNumber,
       };
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error("Upload process error:", error);
 
       let errorMessage = "Upload failed";
 
@@ -211,8 +214,11 @@ export default function Upload() {
         if (error.name === "AbortError") {
           errorMessage =
             "Upload timed out. Please try again with fewer or smaller files.";
-        } else if (error.message.includes("Failed to fetch")) {
-          errorMessage = `Cannot connect to server at ${API_BASE_URL}. Please check if the backend is running.`;
+        } else if (
+          error.message.includes("Failed to fetch") ||
+          error.message.includes("fetch")
+        ) {
+          errorMessage = `Cannot connect to server at ${API_BASE_URL}. Please check if the backend is running and accessible.`;
         } else if (error.message.includes("NetworkError")) {
           errorMessage =
             "Network error during upload. Please check your connection and try again.";
@@ -231,13 +237,11 @@ export default function Upload() {
     }
   };
 
-  // File validation
   const validateFiles = (filesToValidate: File[]): string | null => {
     if (filesToValidate.length === 0) {
       return "Please select at least one file to upload.";
     }
 
-    // Check for valid image files
     const validTypes = [
       "image/jpeg",
       "image/jpg",
@@ -247,67 +251,64 @@ export default function Upload() {
       "image/bmp",
       "image/tiff",
     ];
+    const validExtensions = [
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".gif",
+      ".webp",
+      ".bmp",
+      ".tiff",
+      ".tif",
+    ];
+
     const invalidFiles = filesToValidate.filter((file) => {
       const fileType = file.type.toLowerCase();
       const fileName = file.name.toLowerCase();
 
       if (validTypes.includes(fileType)) return false;
-
-      const validExtensions = [
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".gif",
-        ".webp",
-        ".bmp",
-        ".tiff",
-        ".tif",
-      ];
       return !validExtensions.some((ext) => fileName.endsWith(ext));
     });
 
     if (invalidFiles.length > 0) {
-      return `Invalid file types: ${invalidFiles
+      return `Invalid file types detected: ${invalidFiles
+        .slice(0, 3)
         .map((f) => f.name)
-        .join(
-          ", "
-        )}. Only image files (JPG, PNG, GIF, WEBP, BMP, TIFF) are allowed.`;
+        .join(", ")}${
+        invalidFiles.length > 3 ? ` and ${invalidFiles.length - 3} more` : ""
+      }. Only image files are allowed.`;
     }
 
-    // Check file sizes
     const largeFiles = filesToValidate.filter(
       (file) => file.size > 100 * 1024 * 1024
-    ); // 100MB
+    );
     if (largeFiles.length > 0) {
-      return `Some files are too large: ${largeFiles
+      return `Files too large: ${largeFiles
+        .slice(0, 3)
         .map((f) => `${f.name} (${(f.size / (1024 * 1024)).toFixed(1)}MB)`)
-        .join(", ")}. Maximum file size is 100MB.`;
+        .join(", ")}. Maximum file size is 100MB per file.`;
     }
 
-    // Check total size
     const totalSize = filesToValidate.reduce((sum, file) => sum + file.size, 0);
     const totalSizeGB = totalSize / (1024 * 1024 * 1024);
 
-    if (totalSizeGB > 5) {
-      // 5GB total limit
+    if (totalSizeGB > 2) {
       return `Total upload size (${totalSizeGB.toFixed(
         1
-      )}GB) exceeds maximum limit of 5GB. Please upload in smaller batches.`;
+      )}GB) exceeds maximum limit of 2GB. Please upload in smaller batches.`;
     }
 
-    // Check file count
-    if (filesToValidate.length > 50) {
-      return `Too many files (${filesToValidate.length}). Maximum 50 files per upload.`;
+    if (filesToValidate.length > 100) {
+      return `Too many files (${filesToValidate.length}). Maximum 100 files per upload batch.`;
     }
 
     return null;
   };
 
-  // Event handlers
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
-      console.log(`Selected ${filesArray.length} files`);
+      console.log(`Selected ${filesArray.length} files via file input`);
 
       const imageFiles = filesArray.filter((file) => {
         const fileType = file.type.toLowerCase();
@@ -351,11 +352,7 @@ export default function Upload() {
 
       if (nonImageFiles.length > 0) {
         setUploadError(
-          `${
-            nonImageFiles.length
-          } non-image file(s) were skipped: ${nonImageFiles
-            .map((f) => f.name)
-            .join(", ")}`
+          `${nonImageFiles.length} non-image file(s) were filtered out`
         );
       } else {
         setUploadError(null);
@@ -363,7 +360,7 @@ export default function Upload() {
 
       imageFiles.forEach((file, index) => {
         console.log(
-          `File ${index + 1}: ${file.name} (${file.type}, ${(
+          `Image file ${index + 1}: ${file.name} (${file.type}, ${(
             file.size /
             (1024 * 1024)
           ).toFixed(2)} MB)`
@@ -441,11 +438,7 @@ export default function Upload() {
 
       if (nonImageFiles.length > 0) {
         setUploadError(
-          `${
-            nonImageFiles.length
-          } non-image file(s) were skipped: ${nonImageFiles
-            .map((f) => f.name)
-            .join(", ")}`
+          `${nonImageFiles.length} non-image file(s) were filtered out from drag & drop`
         );
       } else {
         setUploadError(null);
@@ -454,10 +447,11 @@ export default function Upload() {
   };
 
   const handleRemoveFile = (index: number) => {
+    const removedFile = files[index];
     const newFiles = files.filter((_, i) => i !== index);
     setFiles(newFiles);
     console.log(
-      `Removed file at index ${index}, ${newFiles.length} files remaining`
+      `Removed file: ${removedFile.name}, ${newFiles.length} files remaining`
     );
 
     if (newFiles.length === 0) {
@@ -469,15 +463,6 @@ export default function Upload() {
     e.preventDefault();
     console.log("Upload form submitted");
 
-    // Check backend connection
-    if (backendStatus === "disconnected") {
-      setUploadError(
-        `Cannot connect to backend server at ${API_BASE_URL}. Please ensure the server is running.`
-      );
-      return;
-    }
-
-    // Validate form
     const fileValidationError = validateFiles(files);
     if (fileValidationError) {
       setUploadError(fileValidationError);
@@ -489,7 +474,6 @@ export default function Upload() {
       return;
     }
 
-    // Validate part number format
     const partNumberPattern = /^[A-Za-z0-9\-_\.\s]+$/;
     if (!partNumberPattern.test(formData.partNumber.trim())) {
       setUploadError(
@@ -498,7 +482,6 @@ export default function Upload() {
       return;
     }
 
-    // Reset states
     setUploadError(null);
     setUploadProgress(0);
     setUploadSuccess(false);
@@ -510,14 +493,13 @@ export default function Upload() {
     );
 
     try {
-      // Progress simulation
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev === null) return 10;
-          if (prev >= 80) return prev; // Stop at 80% until completion
+          if (prev >= 80) return prev;
 
           const increment =
-            files.length > 10 ? Math.random() * 5 : Math.random() * 10;
+            files.length > 10 ? Math.random() * 3 : Math.random() * 8;
           return Math.min(prev + increment, 80);
         });
       }, 1000);
@@ -529,7 +511,6 @@ export default function Upload() {
       if (result.success) {
         setUploadProgress(100);
         setUploadSuccess(true);
-
         console.log("Upload completed successfully:", result);
 
         if (result.uploaded && result.uploaded.length > 0) {
@@ -539,9 +520,8 @@ export default function Upload() {
           });
         }
 
-        // Auto-reset form after delay
         setTimeout(() => {
-          console.log("Auto-resetting form");
+          console.log("Auto-resetting form after successful upload");
           setFiles([]);
           setFormData({ partNumber: "", notes: "" });
           setUploadProgress(null);
@@ -550,6 +530,7 @@ export default function Upload() {
           setUploadDetails("");
         }, 8000);
       } else {
+        clearInterval(progressInterval);
         setUploadError(result.message);
         setUploadProgress(null);
         setIsUploading(false);
@@ -566,7 +547,6 @@ export default function Upload() {
     }
   };
 
-  // Helper functions
   const getTotalSize = (): string => {
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
     const totalMB = totalBytes / (1024 * 1024);
@@ -579,7 +559,6 @@ export default function Upload() {
     }
   };
 
-  // Loading state
   if (!isLoaded) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
@@ -591,26 +570,11 @@ export default function Upload() {
     );
   }
 
-  // Authentication required state
   if (!isSignedIn) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <div className="text-center">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-              />
-            </svg>
             <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
               Authentication Required
             </h2>
@@ -630,7 +594,6 @@ export default function Upload() {
     );
   }
 
-  // Main render with UI components
   return (
     <div className="bg-gray-50 min-h-screen">
       <UploadNavigation user={user} />
@@ -638,106 +601,18 @@ export default function Upload() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <UploadHeader />
 
-        {/* Connection Status */}
-        <div className="mb-6 bg-white shadow rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div
-                  className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                    backendStatus === "connected"
-                      ? "bg-green-100"
-                      : backendStatus === "disconnected"
-                      ? "bg-red-100"
-                      : "bg-yellow-100"
-                  }`}
-                >
-                  {backendStatus === "checking" ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-yellow-600"></div>
-                  ) : backendStatus === "connected" ? (
-                    <svg
-                      className="h-4 w-4 text-green-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      className="h-4 w-4 text-red-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  )}
-                </div>
-              </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-900">
-                  Backend Connection{" "}
-                  {backendStatus === "connected"
-                    ? "(Ready)"
-                    : backendStatus === "disconnected"
-                    ? "(Offline)"
-                    : "(Checking...)"}
-                </h3>
-                <p className="text-xs text-gray-500">
-                  {backendStatus === "connected" &&
-                    `Connected to ${API_BASE_URL}`}
-                  {backendStatus === "disconnected" &&
-                    `Cannot reach ${API_BASE_URL}`}
-                  {backendStatus === "checking" && "Checking server status..."}
-                </p>
-              </div>
-            </div>
-            {files.length > 0 && (
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {files.length} files selected
-                </p>
-                <p className="text-xs text-gray-500">Total: {getTotalSize()}</p>
-              </div>
-            )}
-            <button
-              onClick={checkBackendConnection}
-              className="ml-4 text-xs text-indigo-600 hover:text-indigo-500"
-              disabled={backendStatus === "checking"}
-            >
-              {backendStatus === "checking" ? "Checking..." : "Recheck"}
-            </button>
-          </div>
-        </div>
-
         <UploadForm
           formData={formData}
           setFormData={setFormData}
           files={files}
           isDragging={isDragging}
           isUploading={isUploading}
-          uploadProgress={uploadProgress}
-          uploadSuccess={uploadSuccess}
-          uploadError={uploadError}
           onSubmit={handleSubmit}
           onFileSelect={handleFileSelect}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          onRemoveFile={handleRemoveFile}
-          getTotalSize={getTotalSize}
         />
 
         <SelectedFilesDisplay
