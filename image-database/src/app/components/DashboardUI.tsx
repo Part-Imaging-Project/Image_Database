@@ -280,45 +280,103 @@ export const ErrorAlert = ({
 
 // Statistics Cards Component
 export const StatisticsCards = ({ statistics }: { statistics: Statistics }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-    <div className="bg-white overflow-hidden shadow rounded-lg">
-      <div className="px-4 py-5 sm:p-6">
-        <dt className="text-sm font-medium text-gray-500 truncate">
-          Total Images
-        </dt>
-        <dd className="mt-1 text-3xl font-semibold text-indigo-600">
-          {statistics.totalImages}
-        </dd>
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    {/* Total Images Card */}
+    <div className="bg-gradient-to-br from-blue-50 to-indigo-100 overflow-hidden shadow-lg rounded-xl border border-blue-200 hover:shadow-xl transition-shadow duration-300">
+      <div className="px-6 py-6">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <div className="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="ml-4 flex-1">
+            <dt className="text-sm font-medium text-gray-600 truncate">
+              Total Images
+            </dt>
+            <dd className="mt-1 text-3xl font-bold text-indigo-700">
+              {statistics.totalImages.toLocaleString()}
+            </dd>
+          </div>
+        </div>
       </div>
     </div>
-    <div className="bg-white overflow-hidden shadow rounded-lg">
-      <div className="px-4 py-5 sm:p-6">
-        <dt className="text-sm font-medium text-gray-500 truncate">
-          Total Storage Used
-        </dt>
-        <dd className="mt-1 text-3xl font-semibold text-green-600">
-          {statistics.totalSize}
-        </dd>
+
+    {/* Total Storage Card */}
+    <div className="bg-gradient-to-br from-green-50 to-emerald-100 overflow-hidden shadow-lg rounded-xl border border-green-200 hover:shadow-xl transition-shadow duration-300">
+      <div className="px-6 py-6">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="ml-4 flex-1">
+            <dt className="text-sm font-medium text-gray-600 truncate">
+              Total Storage Used
+            </dt>
+            <dd className="mt-1 text-3xl font-bold text-green-700">
+              {statistics.totalSize}
+            </dd>
+          </div>
+        </div>
       </div>
     </div>
-    <div className="bg-white overflow-hidden shadow rounded-lg">
-      <div className="px-4 py-5 sm:p-6">
-        <dt className="text-sm font-medium text-gray-500 truncate">
-          Last Upload
-        </dt>
-        <dd className="mt-1 text-lg font-semibold text-blue-600">
-          {statistics.lastUpload}
-        </dd>
-      </div>
-    </div>
-    <div className="bg-white overflow-hidden shadow rounded-lg">
-      <div className="px-4 py-5 sm:p-6">
-        <dt className="text-sm font-medium text-gray-500 truncate">
-          Processing Queue
-        </dt>
-        <dd className="mt-1 text-3xl font-semibold text-purple-600">
-          {statistics.processingQueue}
-        </dd>
+
+    {/* Last Upload Card */}
+    <div className="bg-gradient-to-br from-purple-50 to-violet-100 overflow-hidden shadow-lg rounded-xl border border-purple-200 hover:shadow-xl transition-shadow duration-300">
+      <div className="px-6 py-6">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="ml-4 flex-1">
+            <dt className="text-sm font-medium text-gray-600 truncate">
+              Last Upload
+            </dt>
+            <dd className="mt-1 text-lg font-bold text-purple-700">
+              {statistics.lastUpload}
+            </dd>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -345,26 +403,6 @@ export const TabNavigation = ({
         } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
       >
         Recent Images ({filteredImages.length})
-      </button>
-      <button
-        onClick={() => setActiveTab("favorites")}
-        className={`${
-          activeTab === "favorites"
-            ? "border-indigo-500 text-indigo-600"
-            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-        } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-      >
-        Favorites (0)
-      </button>
-      <button
-        onClick={() => setActiveTab("pending")}
-        className={`${
-          activeTab === "pending"
-            ? "border-indigo-500 text-indigo-600"
-            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-        } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-      >
-        Pending (0)
       </button>
     </nav>
   </div>
@@ -399,11 +437,7 @@ export const ImagesTable = ({
   <div className="bg-white shadow overflow-hidden sm:rounded-md mb-8">
     <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
       <h2 className="text-lg leading-6 font-medium text-gray-900">
-        {activeTab === "recent"
-          ? "Recent Images"
-          : activeTab === "favorites"
-          ? "Favorite Images"
-          : "Pending Images"}
+        Recent Images
       </h2>
       <div className="relative">
         <input
@@ -498,20 +532,16 @@ export const ImagesTable = ({
                         />
                       </svg>
                       <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        {activeTab === "recent"
-                          ? "No Images Found"
-                          : `No ${activeTab} Images`}
+                        No Images Found
                       </h3>
                       <p className="text-sm text-gray-500 max-w-md">
-                        {activeTab === "recent"
-                          ? searchTerm
-                            ? "No images match your search criteria. Try adjusting your search terms."
-                            : apiError
-                            ? "Unable to load images. Please check your backend connection and try again."
-                            : "Get started by uploading your first images to the database."
-                          : `No ${activeTab} images found. Images will appear here as they are marked.`}
+                        {searchTerm
+                          ? "No images match your search criteria. Try adjusting your search terms."
+                          : apiError
+                          ? "Unable to load images. Please check your backend connection and try again."
+                          : "Get started by uploading your first images to the database."}
                       </p>
-                      {activeTab === "recent" && !searchTerm && !apiError && (
+                      {!searchTerm && !apiError && (
                         <Link
                           href="/upload"
                           className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
@@ -579,13 +609,6 @@ export const ImagesTable = ({
                         <div className="text-sm text-gray-900 font-medium">
                           {getDisplayPartNumber(image)}
                         </div>
-                        {hasValidPartNumber(image) && (
-                          <div className="ml-2">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                              ✓
-                            </span>
-                          </div>
-                        )}
                       </div>
                       {image.part_name &&
                         image.part_name !== image.part_number && (
@@ -772,159 +795,6 @@ export const QuickActions = ({ statistics }: { statistics: Statistics }) => (
           </div>
         </div>
       </div>
-    </div>
-  </div>
-);
-
-// System Status Component
-export const SystemStatus = ({
-  apiError,
-  user,
-  loading,
-  statistics,
-  API_BASE_URL,
-}: {
-  apiError: string | null;
-  user: any;
-  loading: boolean;
-  statistics: Statistics;
-  API_BASE_URL: string;
-}) => (
-  <div className="mt-8 bg-white shadow rounded-lg overflow-hidden">
-    <div className="px-4 py-5 sm:px-6 bg-gray-50">
-      <h3 className="text-lg leading-6 font-medium text-gray-900">
-        System Status
-      </h3>
-      <p className="mt-1 text-sm text-gray-500">
-        Backend connection and recent activity
-      </p>
-    </div>
-    <div className="border-t border-gray-200">
-      <ul className="divide-y divide-gray-200">
-        <li className="px-4 py-4 sm:px-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div
-                  className={`h-8 w-8 rounded-full ${
-                    apiError ? "bg-red-100" : "bg-green-100"
-                  } flex items-center justify-center`}
-                >
-                  <svg
-                    className={`h-4 w-4 ${
-                      apiError ? "text-red-600" : "text-green-600"
-                    }`}
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    {apiError ? (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    ) : (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    )}
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-4">
-                <div className="text-sm font-medium text-gray-900">
-                  Backend API Connection
-                </div>
-                <div className="text-sm text-gray-500">
-                  {apiError
-                    ? `Connection failed: ${API_BASE_URL}`
-                    : `Connected to ${API_BASE_URL}`}
-                </div>
-              </div>
-            </div>
-            <div className="text-sm text-gray-500">
-              {new Date().toLocaleTimeString()}
-            </div>
-          </div>
-        </li>
-        <li className="px-4 py-4 sm:px-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                  <svg
-                    className="h-4 w-4 text-blue-600"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-4">
-                <div className="text-sm font-medium text-gray-900">
-                  User Session
-                </div>
-                <div className="text-sm text-gray-500">
-                  {user?.fullName || user?.emailAddresses[0]?.emailAddress} is
-                  logged in
-                </div>
-              </div>
-            </div>
-            <div className="text-sm text-gray-500">Active</div>
-          </div>
-        </li>
-        <li className="px-4 py-4 sm:px-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                  <svg
-                    className="h-4 w-4 text-indigo-600"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"
-                    />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-4">
-                <div className="text-sm font-medium text-gray-900">
-                  MinIO Storage Status
-                </div>
-                <div className="text-sm text-gray-500">
-                  {loading
-                    ? "Checking..."
-                    : `Folder-based storage • ${statistics.totalImages} images stored`}
-                </div>
-              </div>
-            </div>
-            <div className="text-sm text-gray-500">
-              {loading ? "Loading..." : "Ready"}
-            </div>
-          </div>
-        </li>
-      </ul>
     </div>
   </div>
 );

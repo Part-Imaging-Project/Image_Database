@@ -10,7 +10,6 @@ import {
   ImagesTable,
   QuickActions,
   StatisticsCards,
-  SystemStatus,
   TabNavigation,
   type ImageData,
   type Statistics,
@@ -35,6 +34,10 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
+  
+  // Modal state for image viewing
+  const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   // Helper function to extract part number from various sources
   const extractPartNumber = (image: any): string => {
@@ -406,10 +409,8 @@ export default function Dashboard() {
   const handleViewImage = async (imageId: number): Promise<void> => {
     const imageDetails = await fetchImageById(imageId);
     if (imageDetails) {
-      // Open image in new tab using the correct folder-based URL
-      const imageUrl = getImagePreviewUrl(imageDetails);
-      console.log("Opening image URL:", imageUrl);
-      window.open(imageUrl, "_blank");
+      setSelectedImage(imageDetails);
+      setShowImageModal(true);
     }
   };
 
@@ -446,6 +447,29 @@ export default function Dashboard() {
       loadDashboardData();
     }
   }, [isSignedIn]);
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showImageModal) {
+        setShowImageModal(false);
+        setSelectedImage(null);
+      }
+    };
+
+    if (showImageModal) {
+      document.addEventListener('keydown', handleEscape);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showImageModal]);
 
   // Data processing with improved part number handling
   const filteredImages = images.filter((image: ImageData) => {
@@ -559,16 +583,126 @@ export default function Dashboard() {
 
         {/* Quick Actions */}
         <QuickActions statistics={statistics} />
-
-        {/* System Status */}
-        <SystemStatus
-          apiError={apiError}
-          user={user}
-          loading={loading}
-          statistics={statistics}
-          API_BASE_URL={API_BASE_URL}
-        />
       </main>
+
+      {/* Image View Modal */}
+      {showImageModal && selectedImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+          onClick={(e) => {
+            // Close modal when clicking on backdrop (but not on the modal content)
+            if (e.target === e.currentTarget) {
+              setShowImageModal(false);
+              setSelectedImage(null);
+            }
+          }}
+        >
+          <div className="relative max-w-4xl max-h-screen p-4">
+            {/* Close button */}
+            <button
+              onClick={() => {
+                setShowImageModal(false);
+                setSelectedImage(null);
+              }}
+              className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+            >
+              <svg
+                className="h-8 w-8"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+            
+            {/* Image container */}
+            <div className="bg-white rounded-lg overflow-hidden shadow-2xl">
+              {/* Image header with details */}
+              <div className="p-4 bg-gray-50 border-b">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {selectedImage.file_name}
+                </h3>
+                <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-600">
+                  <div>
+                    <span className="font-medium">Part Number:</span>{" "}
+                    {extractPartNumber(selectedImage)}
+                  </div>
+                  <div>
+                    <span className="font-medium">File Size:</span>{" "}
+                    {selectedImage.image_size
+                      ? `${(selectedImage.image_size / (1024 * 1024)).toFixed(1)} MB`
+                      : "Unknown"}
+                  </div>
+                  <div>
+                    <span className="font-medium">Captured:</span>{" "}
+                    {new Date(selectedImage.captured_at).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                  <div>
+                    <span className="font-medium">Type:</span>{" "}
+                    {selectedImage.file_type?.toUpperCase() || "Unknown"}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Full-size image */}
+              <div className="p-4">
+                <img
+                  src={getImagePreviewUrl(selectedImage)}
+                  alt={selectedImage.file_name}
+                  className="max-w-full max-h-[70vh] object-contain mx-auto"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    console.error("Modal image failed to load:", getImagePreviewUrl(selectedImage));
+                    target.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJMMTMuMDkgOC4yNkwyMCA5TDEzLjA5IDE1Ljc0TDEyIDIyTDEwLjkxIDE1Ljc0TDQgOUwxMC45MSA4LjI2TDEyIDJaIiBzdHJva2U9IiM5Q0E0QUYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=";
+                  }}
+                />
+              </div>
+              
+              {/* Action buttons */}
+              <div className="p-4 bg-gray-50 border-t flex justify-between items-center">
+                <button
+                  onClick={() => {
+                    setShowImageModal(false);
+                    setSelectedImage(null);
+                  }}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                  Close
+                </button>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => handleDownloadImage(selectedImage)}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Download
+                  </button>
+                  <button
+                    onClick={() => {
+                      const imageUrl = getImagePreviewUrl(selectedImage);
+                      window.open(imageUrl, "_blank");
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Open in New Tab
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
