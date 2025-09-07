@@ -196,14 +196,6 @@ export const UploadForm = ({
                 >
                   Select Folder
                 </button>
-                <button
-                  type="button"
-                  onClick={triggerFileInput}
-                  disabled={isUploading}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Select Files
-                </button>
               </div>
 
               <div
@@ -484,32 +476,6 @@ export const UploadGuidelines = () => {
               <strong>Automatic Processing:</strong> Images are automatically
               stored in MinIO and metadata saved to PostgreSQL.
             </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export const ProTips = () => {
-  return (
-    <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-      <div className="flex">
-        <div className="flex-shrink-0">
-          <span className="text-blue-400">💡</span>
-        </div>
-        <div className="ml-3">
-          <h3 className="text-sm font-medium text-blue-800">Upload Tips</h3>
-          <div className="mt-2 text-sm text-blue-700">
-            <ul className="list-disc list-inside space-y-1">
-              <li>
-                Use clear, descriptive part numbers for better organization
-              </li>
-              <li>
-                Files are automatically validated for image format compatibility
-              </li>
-              <li>Multiple file selection is supported for batch uploads</li>
-            </ul>
           </div>
         </div>
       </div>

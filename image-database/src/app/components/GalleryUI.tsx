@@ -332,7 +332,7 @@ export const PartNumberGroupsView = ({
             )}
 
             {/* Image Preview Grid */}
-            <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="grid grid-cols-3 gap-2 mb-4 relative">
               {group.images.slice(0, 3).map((image, index) => (
                 <div key={index} className="relative">
                   <img
@@ -350,14 +350,14 @@ export const PartNumberGroupsView = ({
                       {group.partNumber.slice(-3)}
                     </span>
                   </div>
+                  {/* Show "+" indicator only on the last image if more than 3 images */}
+                  {index === 2 && group.totalImages > 3 && (
+                    <div className="absolute inset-0 bg-black bg-opacity-60 text-white text-xs flex items-center justify-center rounded pointer-events-none">
+                      +{group.totalImages - 3}
+                    </div>
+                  )}
                 </div>
               ))}
-              {/* Show "+" indicator if more than 3 images */}
-              {group.totalImages > 3 && (
-                <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                  +{group.totalImages - 3}
-                </div>
-              )}
             </div>
 
             {/* Part Info */}

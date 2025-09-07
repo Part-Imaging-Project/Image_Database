@@ -4,7 +4,6 @@
 import { SignInButton, useUser } from "@clerk/nextjs";
 import React, { useState } from "react";
 import {
-  ProTips,
   SelectedFilesDisplay,
   StatusMessages,
   UploadForm,
@@ -643,7 +642,6 @@ export default function Upload() {
         />
 
         <UploadGuidelines />
-        <ProTips />
       </main>
     </div>
   );
