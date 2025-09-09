@@ -482,9 +482,63 @@ export default function Dashboard() {
     );
   });
 
-  // Get images for current tab - show all images
+  // Helper function to get limited recent images (20-30 images from max 2 parts)
+  const getLimitedRecentImages = (allImages: ImageData[]): ImageData[] => {
+    // Sort images by captured_at in descending order (most recent first)
+    const sortedImages = [...allImages].sort((a, b) => 
+      new Date(b.captured_at).getTime() - new Date(a.captured_at).getTime()
+    );
+
+    const partGroups: { [partNumber: string]: ImageData[] } = {};
+    const maxParts = 2;
+    const maxImagesPerPart = 15; // This ensures 2 parts * 15 = 30 max images
+    const targetTotalImages = 25; // Target around 25 images
+
+    // Group images by part number
+    for (const image of sortedImages) {
+      const partNumber = extractPartNumber(image);
+      
+      if (!partGroups[partNumber]) {
+        // Only allow up to maxParts different parts
+        if (Object.keys(partGroups).length >= maxParts) {
+          continue;
+        }
+        partGroups[partNumber] = [];
+      }
+      
+      // Only add if this part doesn't exceed the per-part limit
+      if (partGroups[partNumber].length < maxImagesPerPart) {
+        partGroups[partNumber].push(image);
+      }
+    }
+
+    // Flatten and limit to target total
+    const recentImages: ImageData[] = [];
+    const partNumbers = Object.keys(partGroups);
+    
+    // Interleave images from different parts to get a good mix
+    let maxRounds = Math.max(...Object.values(partGroups).map(group => group.length));
+    
+    for (let round = 0; round < maxRounds && recentImages.length < targetTotalImages; round++) {
+      for (const partNumber of partNumbers) {
+        if (recentImages.length >= targetTotalImages) break;
+        
+        const partImages = partGroups[partNumber];
+        if (partImages[round]) {
+          recentImages.push(partImages[round]);
+        }
+      }
+    }
+
+    return recentImages.slice(0, targetTotalImages);
+  };
+
+  // Get images for current tab
   const getTabImages = () => {
-    return filteredImages; // Show all filtered images
+    if (activeTab === "recent") {
+      return getLimitedRecentImages(filteredImages);
+    }
+    return filteredImages; // Show all filtered images for other tabs
   };
 
   const tabImages = getTabImages();
