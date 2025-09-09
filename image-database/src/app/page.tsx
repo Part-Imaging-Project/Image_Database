@@ -37,22 +37,186 @@ const HeroSection: React.FC = () => {
 
   return (
     <>
+      <style jsx>{`
+        .hero-container {
+          background-color: white;
+          padding: 2rem 1rem;
+        }
+        .hero-content {
+          max-width: 1200px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+        }
+        .hero-text {
+          flex: 1;
+        }
+        .hero-title {
+          font-size: 2rem;
+          font-weight: bold;
+          color: #111827;
+          margin-bottom: 1rem;
+          line-height: 1.2;
+        }
+        .hero-description {
+          font-size: 1rem;
+          color: #4B5563;
+          margin-bottom: 2rem;
+          line-height: 1.6;
+        }
+        .tech-stack {
+          display: flex;
+          gap: 1rem;
+          align-items: center;
+          flex-wrap: wrap;
+          margin-top: 1.5rem;
+        }
+        .tech-stack img {
+          height: 32px;
+          filter: grayscale(30%);
+        }
+        .dashboard-preview {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-top: 1rem;
+        }
+        .preview-container {
+          width: 100%;
+          max-width: 400px;
+          height: 280px;
+          background-color: #F3F4F6;
+          border-radius: 8px;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+          position: relative;
+          overflow: hidden;
+        }
+        .section-padding {
+          padding: 3rem 1rem;
+        }
+        .features-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 1.5rem;
+          justify-items: center;
+        }
+        .feature-card {
+          background-color: white;
+          padding: 1.5rem;
+          border-radius: 8px;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+          width: 100%;
+          max-width: 350px;
+        }
+        .tech-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 2rem;
+          justify-items: center;
+          margin-bottom: 2rem;
+        }
+        .tech-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .tech-item img {
+          height: 48px;
+          margin-bottom: 0.5rem;
+        }
+        .cta-section {
+          background-color: #1F2937;
+          padding: 3rem 1rem;
+          color: white;
+          text-align: center;
+        }
+        .cta-title {
+          font-size: 1.75rem;
+          font-weight: bold;
+          margin-bottom: 1rem;
+        }
+        .cta-description {
+          font-size: 1rem;
+          color: #D1D5DB;
+          margin-bottom: 2rem;
+          max-width: 600px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        @media (min-width: 768px) {
+          .hero-container {
+            padding: 4rem 1rem;
+          }
+          .hero-content {
+            flex-direction: row;
+            align-items: center;
+          }
+          .hero-text {
+            padding-right: 2rem;
+          }
+          .hero-title {
+            font-size: 2.5rem;
+          }
+          .hero-description {
+            font-size: 1.125rem;
+          }
+          .tech-stack img {
+            height: 40px;
+          }
+          .preview-container {
+            height: 350px;
+            max-width: 450px;
+          }
+          .section-padding {
+            padding: 4rem 1rem;
+          }
+          .features-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .tech-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 3rem;
+          }
+          .tech-item img {
+            height: 60px;
+          }
+          .cta-title {
+            font-size: 2.25rem;
+          }
+          .cta-description {
+            font-size: 1.125rem;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .hero-title {
+            font-size: 3rem;
+          }
+          .features-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
+      `}</style>
+
       {/* Navigation Component */}
       <MainNavbar />
 
       {/* Hero content */}
-      <div style={{ backgroundColor: 'white', padding: '4rem 1rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'row', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 600px', paddingRight: '2rem' }}>
-            <h1 style={{ fontSize: '3rem', fontWeight: 'bold', color: '#111827', marginBottom: '1rem', maxWidth: '800px' }}>
+      <div className="hero-container">
+        <div className="hero-content">
+          <div className="hero-text">
+            <h1 className="hero-title">
               Centralized Image Database Management
             </h1>
-            <p style={{ fontSize: '1.125rem', color: '#4B5563', marginBottom: '2rem', maxWidth: '800px', lineHeight: '1.6' }}>
+            <p className="hero-description">
               Streamline your part imaging workflow with our robust system. Store, organize, and retrieve images with comprehensive metadata for ERP integration and AI processing.
             </p>
             
             {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '3rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
               <SignInButton 
                 mode="modal"
                 forceRedirectUrl="/dashboard"
@@ -65,15 +229,14 @@ const HeroSection: React.FC = () => {
             </div>
 
             {/* Technology Stack */}
-            <div style={{ marginTop: '2rem' }}>
+            <div style={{ marginTop: '1.5rem' }}>
               <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#6B7280', marginBottom: '1rem' }}>
                 Built with Modern Technologies
               </div>
-              <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div className="tech-stack">
                 <img 
                   src="/react.png" 
                   alt="React" 
-                  style={{ height: '40px', filter: 'grayscale(30%)' }}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -81,7 +244,6 @@ const HeroSection: React.FC = () => {
                 <img 
                   src="/postgres.png" 
                   alt="PostgreSQL" 
-                  style={{ height: '40px', filter: 'grayscale(30%)' }}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -89,7 +251,6 @@ const HeroSection: React.FC = () => {
                 <img 
                   src="/expressjs.png" 
                   alt="Express.js" 
-                  style={{ height: '40px', filter: 'grayscale(30%)' }}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -97,29 +258,17 @@ const HeroSection: React.FC = () => {
                 <img 
                   src="/minio.png" 
                   alt="MinIO" 
-                  style={{ height: '40px', filter: 'grayscale(30%)' }}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
                 />
               </div>
             </div>
-            
-
           </div>
           
           {/* Dashboard Preview Mockup */}
-          <div style={{ flex: '1 1 400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ 
-              width: '100%', 
-              maxWidth: '450px', 
-              height: '350px', 
-              backgroundColor: '#F3F4F6', 
-              borderRadius: '8px',
-              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
+          <div className="dashboard-preview">
+            <div className="preview-container">
               {/* Header bar */}
               <div style={{ position: 'absolute', top: '20px', left: '20px', right: '20px', height: '40px', backgroundColor: '#E5E7EB', borderRadius: '4px', display: 'flex', alignItems: 'center', paddingLeft: '15px' }}>
                 <div style={{ width: '20px', height: '20px', backgroundColor: '#0078D4', borderRadius: '2px', marginRight: '10px' }}></div>
@@ -131,75 +280,75 @@ const HeroSection: React.FC = () => {
                 position: 'absolute', 
                 top: '80px', 
                 left: '20px', 
-                width: '120px', 
-                height: '80px', 
+                width: '80px', 
+                height: '60px', 
                 backgroundColor: '#D1D5DB', 
                 borderRadius: '4px',
                 backgroundImage: 'linear-gradient(45deg, #D1D5DB 25%, transparent 25%, transparent 75%, #D1D5DB 75%), linear-gradient(45deg, #D1D5DB 25%, transparent 25%, transparent 75%, #D1D5DB 75%)',
-                backgroundSize: '20px 20px',
-                backgroundPosition: '0 0, 10px 10px'
+                backgroundSize: '15px 15px',
+                backgroundPosition: '0 0, 7px 7px'
               }}></div>
               
               <div style={{ 
                 position: 'absolute', 
                 top: '80px', 
-                left: '160px', 
-                width: '120px', 
-                height: '80px', 
+                left: '120px', 
+                width: '80px', 
+                height: '60px', 
                 backgroundColor: '#D1D5DB', 
                 borderRadius: '4px',
                 backgroundImage: 'linear-gradient(45deg, #D1D5DB 25%, transparent 25%, transparent 75%, #D1D5DB 75%), linear-gradient(45deg, #D1D5DB 25%, transparent 25%, transparent 75%, #D1D5DB 75%)',
-                backgroundSize: '20px 20px',
-                backgroundPosition: '0 0, 10px 10px'
+                backgroundSize: '15px 15px',
+                backgroundPosition: '0 0, 7px 7px'
               }}></div>
               
               <div style={{ 
                 position: 'absolute', 
                 top: '80px', 
-                left: '300px', 
-                width: '120px', 
-                height: '80px', 
+                right: '20px', 
+                width: '80px', 
+                height: '60px', 
                 backgroundColor: '#D1D5DB', 
                 borderRadius: '4px',
                 backgroundImage: 'linear-gradient(45deg, #D1D5DB 25%, transparent 25%, transparent 75%, #D1D5DB 75%), linear-gradient(45deg, #D1D5DB 25%, transparent 25%, transparent 75%, #D1D5DB 75%)',
-                backgroundSize: '20px 20px',
-                backgroundPosition: '0 0, 10px 10px'
+                backgroundSize: '15px 15px',
+                backgroundPosition: '0 0, 7px 7px'
               }}></div>
               
               {/* Action button */}
               <div style={{ 
                 position: 'absolute', 
-                top: '200px', 
+                top: '180px', 
                 left: '20px', 
-                width: '120px', 
-                height: '40px', 
+                width: '100px', 
+                height: '32px', 
                 backgroundColor: '#0078D4', 
                 borderRadius: '4px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <div style={{ fontSize: '12px', color: 'white', fontWeight: '500' }}>Upload Images</div>
+                <div style={{ fontSize: '11px', color: 'white', fontWeight: '500' }}>Upload Images</div>
               </div>
 
               {/* Small chart mockup */}
               <div style={{ 
                 position: 'absolute', 
-                top: '200px', 
+                top: '180px', 
                 right: '20px', 
-                width: '150px', 
-                height: '40px', 
+                width: '120px', 
+                height: '32px', 
                 backgroundColor: '#F3F4F6', 
                 borderRadius: '4px',
                 display: 'flex',
                 alignItems: 'end',
                 justifyContent: 'space-around',
-                padding: '5px'
+                padding: '4px'
               }}>
-                <div style={{ width: '8px', height: '15px', backgroundColor: '#0078D4', borderRadius: '1px' }}></div>
-                <div style={{ width: '8px', height: '25px', backgroundColor: '#10B981', borderRadius: '1px' }}></div>
-                <div style={{ width: '8px', height: '20px', backgroundColor: '#F59E0B', borderRadius: '1px' }}></div>
-                <div style={{ width: '8px', height: '30px', backgroundColor: '#8B5CF6', borderRadius: '1px' }}></div>
+                <div style={{ width: '6px', height: '12px', backgroundColor: '#0078D4', borderRadius: '1px' }}></div>
+                <div style={{ width: '6px', height: '20px', backgroundColor: '#10B981', borderRadius: '1px' }}></div>
+                <div style={{ width: '6px', height: '16px', backgroundColor: '#F59E0B', borderRadius: '1px' }}></div>
+                <div style={{ width: '6px', height: '24px', backgroundColor: '#8B5CF6', borderRadius: '1px' }}></div>
               </div>
             </div>
           </div>
@@ -207,11 +356,11 @@ const HeroSection: React.FC = () => {
       </div>
       
       {/* Enhanced feature highlights section */}
-      <div style={{ backgroundColor: '#F9FAFB', padding: '4rem 1rem' }}>
+      <div style={{ backgroundColor: '#F9FAFB' }} className="section-padding">
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           {/* Technology Stack Section */}
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-            <h2 style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#111827', marginBottom: '1rem' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', marginBottom: '1rem' }}>
               Built with Enterprise Technologies
             </h2>
             <p style={{ fontSize: '1rem', color: '#6B7280', marginBottom: '2rem' }}>
@@ -219,12 +368,11 @@ const HeroSection: React.FC = () => {
             </p>
             
             {/* Tech Stack Icons */}
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '3rem', flexWrap: 'wrap', marginBottom: '3rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className="tech-grid">
+              <div className="tech-item">
                 <img 
                   src="/react.png" 
                   alt="React" 
-                  style={{ height: '60px', marginBottom: '0.5rem' }}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -232,11 +380,10 @@ const HeroSection: React.FC = () => {
                 <span style={{ fontSize: '0.875rem', color: '#6B7280', fontWeight: '500' }}>React</span>
               </div>
               
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div className="tech-item">
                 <img 
                   src="/postgres.png" 
                   alt="PostgreSQL" 
-                  style={{ height: '60px', marginBottom: '0.5rem' }}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -244,11 +391,10 @@ const HeroSection: React.FC = () => {
                 <span style={{ fontSize: '0.875rem', color: '#6B7280', fontWeight: '500' }}>PostgreSQL</span>
               </div>
               
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div className="tech-item">
                 <img 
                   src="/expressjs.png" 
                   alt="Express.js" 
-                  style={{ height: '60px', marginBottom: '0.5rem' }}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -256,11 +402,10 @@ const HeroSection: React.FC = () => {
                 <span style={{ fontSize: '0.875rem', color: '#6B7280', fontWeight: '500' }}>Express.js</span>
               </div>
               
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div className="tech-item">
                 <img 
                   src="/minio.png" 
                   alt="MinIO" 
-                  style={{ height: '60px', marginBottom: '0.5rem' }}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -271,8 +416,8 @@ const HeroSection: React.FC = () => {
           </div>
 
           {/* Feature Cards */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', justifyContent: 'center' }}>
-            <div style={{ flex: '1 1 280px', backgroundColor: 'white', padding: '2rem', borderRadius: '8px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)', maxWidth: '350px' }}>
+          <div className="features-grid">
+            <div className="feature-card">
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
                 <div style={{ width: '40px', height: '40px', backgroundColor: '#EBF8FF', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '1rem' }}>
                   <svg style={{ width: '24px', height: '24px', color: '#0078D4' }} fill="currentColor" viewBox="0 0 20 20">
@@ -286,7 +431,7 @@ const HeroSection: React.FC = () => {
               </p>
             </div>
             
-            <div style={{ flex: '1 1 280px', backgroundColor: 'white', padding: '2rem', borderRadius: '8px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)', maxWidth: '350px' }}>
+            <div className="feature-card">
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
                 <div style={{ width: '40px', height: '40px', backgroundColor: '#F0FDF4', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '1rem' }}>
                   <svg style={{ width: '24px', height: '24px', color: '#10B981' }} fill="currentColor" viewBox="0 0 20 20">
@@ -300,7 +445,7 @@ const HeroSection: React.FC = () => {
               </p>
             </div>
             
-            <div style={{ flex: '1 1 280px', backgroundColor: 'white', padding: '2rem', borderRadius: '8px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)', maxWidth: '350px' }}>
+            <div className="feature-card">
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
                 <div style={{ width: '40px', height: '40px', backgroundColor: '#FEF3C7', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '1rem' }}>
                   <svg style={{ width: '24px', height: '24px', color: '#F59E0B' }} fill="currentColor" viewBox="0 0 20 20">
@@ -318,12 +463,12 @@ const HeroSection: React.FC = () => {
       </div>
 
       {/* Call to Action Section */}
-      <div style={{ backgroundColor: '#1F2937', padding: '4rem 1rem', color: 'white' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '2.25rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+      <div className="cta-section">
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <h2 className="cta-title">
             Ready to Transform Your Image Management?
           </h2>
-          <p style={{ fontSize: '1.125rem', color: '#D1D5DB', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>
+          <p className="cta-description">
             Join the digital transformation in manufacturing. Start organizing your part images with enterprise-grade tools today.
           </p>
           <SignInButton 

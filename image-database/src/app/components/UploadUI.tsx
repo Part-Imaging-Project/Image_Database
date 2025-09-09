@@ -3,7 +3,7 @@
 
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 export interface UploadFormData {
   partNumber: string;
@@ -11,17 +11,20 @@ export interface UploadFormData {
 }
 
 export const UploadNavigation = ({ user }: { user: any }) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
   return (
     <nav className="bg-white shadow">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link href="/" className="text-2xl font-bold text-indigo-600">
+              <Link href="/" className="text-xl sm:text-2xl font-bold text-indigo-600">
                 ImageDB
               </Link>
             </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+            {/* Desktop Navigation */}
+            <div className="hidden sm:ml-6 sm:flex sm:space-x-8 desktop-nav-menu">
               <Link
                 href="/dashboard"
                 className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
@@ -42,11 +45,13 @@ export const UploadNavigation = ({ user }: { user: any }) => {
               </Link>
             </div>
           </div>
-          <div className="flex items-center">
+          
+          {/* Desktop User Menu */}
+          <div className="hidden sm:flex items-center">
             <div className="flex-shrink-0">
               <div className="relative ml-3">
                 <div className="flex items-center space-x-4">
-                  <span className="text-gray-700">
+                  <span className="text-gray-700 text-sm">
                     {user?.fullName ||
                       user?.emailAddresses[0]?.emailAddress ||
                       "User"}
@@ -56,6 +61,65 @@ export const UploadNavigation = ({ user }: { user: any }) => {
               </div>
             </div>
           </div>
+
+          {/* Mobile menu button */}
+          <div className="flex items-center sm:hidden">
+            <UserButton afterSignOutUrl="/" />
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="ml-2 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+              aria-expanded="false"
+            >
+              <span className="sr-only">Open main menu</span>
+              {/* Menu icon */}
+              <svg
+                className={`${isMobileMenuOpen ? 'hidden' : 'block'} h-6 w-6`}
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              {/* Close icon */}
+              <svg
+                className={`${isMobileMenuOpen ? 'block' : 'hidden'} h-6 w-6`}
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile menu */}
+        <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} sm:hidden mobile-nav-menu`}>
+          <div className="pt-2 pb-3 space-y-1">
+            <Link
+              href="/dashboard"
+              className="border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Dashboard
+            </Link>
+            <Link
+              href="/gallery"
+              className="border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Gallery
+            </Link>
+            <Link
+              href="/upload"
+              className="bg-indigo-50 border-indigo-500 text-indigo-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Upload
+            </Link>
+          </div>
         </div>
       </div>
     </nav>
@@ -64,17 +128,17 @@ export const UploadNavigation = ({ user }: { user: any }) => {
 
 export const UploadHeader = () => {
   return (
-    <div className="md:flex md:items-center md:justify-between mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
       <div className="flex-1 min-w-0">
-        <h1 className="text-2xl font-bold text-gray-900">Upload Images</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Upload Images</h1>
         <p className="mt-1 text-sm text-gray-500">
           Upload multiple images for a part number.
         </p>
       </div>
-      <div className="mt-4 md:mt-0">
+      <div className="w-full sm:w-auto">
         <Link
           href="/gallery"
-          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
         >
           View Gallery
         </Link>
@@ -138,7 +202,7 @@ export const UploadForm = ({
     <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
       <div className="px-4 py-5 sm:p-6">
         <form onSubmit={onSubmit}>
-          <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+          <div className="space-y-6 mobile-form-grid sm:grid sm:grid-cols-6 sm:gap-x-4 sm:gap-y-6 sm:space-y-0">
             <div className="sm:col-span-3">
               <label
                 htmlFor="partNumber"
@@ -155,7 +219,7 @@ export const UploadForm = ({
                   value={formData.partNumber}
                   onChange={handleInputChange}
                   disabled={isUploading}
-                  className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md disabled:bg-gray-100"
+                  className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full text-sm sm:text-sm border-gray-300 rounded-md disabled:bg-gray-100"
                   placeholder="e.g., PART-8899"
                 />
               </div>
@@ -176,7 +240,7 @@ export const UploadForm = ({
                   value={formData.notes}
                   onChange={handleInputChange}
                   disabled={isUploading}
-                  className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md disabled:bg-gray-100"
+                  className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full text-sm sm:text-sm border-gray-300 rounded-md disabled:bg-gray-100"
                   placeholder="Additional information about these images"
                 />
               </div>
@@ -187,12 +251,12 @@ export const UploadForm = ({
                 Upload Images *
               </label>
 
-              <div className="mb-4 flex space-x-4">
+              <div className="mb-4 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                 <button
                   type="button"
                   onClick={triggerFolderInput}
                   disabled={isUploading}
-                  className="inline-flex items-center px-4 py-2 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50"
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50"
                 >
                   Select Folder
                 </button>
@@ -232,10 +296,10 @@ export const UploadForm = ({
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end">
+          <div className="mt-6 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:justify-end">
             <Link
               href="/dashboard"
-              className="mr-3 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              className="order-2 sm:order-1 sm:mr-3 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 text-center"
             >
               Cancel
             </Link>
@@ -244,7 +308,7 @@ export const UploadForm = ({
               disabled={
                 isUploading || files.length === 0 || !formData.partNumber.trim()
               }
-              className={`inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
+              className={`order-1 sm:order-2 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
                 isUploading || files.length === 0 || !formData.partNumber.trim()
                   ? "bg-indigo-400 cursor-not-allowed"
                   : "bg-indigo-600 hover:bg-indigo-700"
