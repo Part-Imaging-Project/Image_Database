@@ -3,6 +3,7 @@
 
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
+import { useState } from "react";
 
 // Type definitions
 export interface ImageData {
@@ -133,71 +134,137 @@ interface DashboardUIProps {
 }
 
 // Navigation Component
-export const DashboardNavigation = ({ user }: { user: any }) => (
-  <nav className="bg-white shadow">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between h-16">
-        <div className="flex">
-          <div className="flex-shrink-0 flex items-center">
-            <Link href="/" className="text-2xl font-bold text-indigo-600">
-              ImageDB
-            </Link>
+export const DashboardNavigation = ({ user }: { user: any }) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  return (
+    <nav className="bg-white shadow">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex">
+            <div className="flex-shrink-0 flex items-center">
+              <Link href="/" className="text-xl sm:text-2xl font-bold text-indigo-600">
+                ImageDB
+              </Link>
+            </div>
+            {/* Desktop Navigation */}
+            <div className="hidden sm:ml-6 sm:flex sm:space-x-8 desktop-nav-menu">
+              <Link
+                href="/dashboard"
+                className="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/gallery"
+                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              >
+                Gallery
+              </Link>
+              <Link
+                href="/upload"
+                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              >
+                Upload
+              </Link>
+            </div>
           </div>
-          <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+          
+          {/* Desktop User Menu */}
+          <div className="hidden sm:flex items-center">
+            <div className="flex-shrink-0">
+              <div className="relative ml-3">
+                <div className="flex items-center space-x-4">
+                  <span className="text-gray-700 text-sm">
+                    {user?.fullName ||
+                      user?.emailAddresses[0]?.emailAddress ||
+                      "User"}
+                  </span>
+                  <UserButton afterSignOutUrl="/" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="flex items-center sm:hidden">
+            <UserButton afterSignOutUrl="/" />
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="ml-2 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+              aria-expanded="false"
+            >
+              <span className="sr-only">Open main menu</span>
+              {/* Menu icon */}
+              <svg
+                className={`${isMobileMenuOpen ? 'hidden' : 'block'} h-6 w-6`}
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              {/* Close icon */}
+              <svg
+                className={`${isMobileMenuOpen ? 'block' : 'hidden'} h-6 w-6`}
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile menu */}
+        <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} sm:hidden mobile-nav-menu`}>
+          <div className="pt-2 pb-3 space-y-1">
             <Link
               href="/dashboard"
-              className="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              className="bg-indigo-50 border-indigo-500 text-indigo-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Dashboard
             </Link>
             <Link
               href="/gallery"
-              className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              className="border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Gallery
             </Link>
             <Link
               href="/upload"
-              className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              className="border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Upload
             </Link>
           </div>
         </div>
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <div className="relative ml-3">
-              <div className="flex items-center space-x-4">
-                <span className="text-gray-700">
-                  {user?.fullName ||
-                    user?.emailAddresses[0]?.emailAddress ||
-                    "User"}
-                </span>
-                <UserButton afterSignOutUrl="/" />
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
-    </div>
-  </nav>
-);
+    </nav>
+  );
+};
 
 // Header Component
 export const DashboardHeader = ({ onRefresh }: { onRefresh: () => void }) => (
-  <div className="md:flex md:items-center md:justify-between mb-6">
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
     <div className="flex-1 min-w-0">
-      <h1 className="text-2xl font-bold text-gray-900">
+      <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
         Image Database Dashboard
       </h1>
       <p className="mt-1 text-sm text-gray-500">
         Manage your part images in one centralized location.
       </p>
     </div>
-    <div className="mt-4 md:mt-0 flex space-x-3">
+    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
       <button
         onClick={onRefresh}
-        className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mobile-full-width sm:w-auto"
       >
         <svg
           className="h-4 w-4 mr-2"
@@ -217,7 +284,7 @@ export const DashboardHeader = ({ onRefresh }: { onRefresh: () => void }) => (
       </button>
       <Link
         href="/upload"
-        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mobile-full-width sm:w-auto"
       >
         <svg
           className="h-4 w-4 mr-2"
@@ -477,8 +544,8 @@ export const ImagesTable = ({
           <span className="ml-3 text-gray-600">Loading images...</span>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="overflow-x-auto mobile-table-wrapper">
+          <table className="min-w-full divide-y divide-gray-200 md:table hidden">
             <thead className="bg-gray-50">
               <tr>
                 <th
@@ -663,6 +730,158 @@ export const ImagesTable = ({
               )}
             </tbody>
           </table>
+          
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {tabImages.length === 0 ? (
+              <div className="px-4 py-12 text-center">
+                <div className="flex flex-col items-center">
+                  <svg
+                    className="h-12 w-12 text-gray-400 mb-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    No Images Found
+                  </h3>
+                  <p className="text-sm text-gray-500 max-w-md text-center">
+                    {searchTerm
+                      ? "No images match your search criteria. Try adjusting your search terms."
+                      : apiError
+                      ? "Unable to load images. Please check your backend connection and try again."
+                      : "Get started by uploading your first images to the database."}
+                  </p>
+                  {!searchTerm && !apiError && (
+                    <Link
+                      href="/upload"
+                      className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                    >
+                      Upload Your First Images
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ) : (
+              tabImages.map((image: ImageData) => (
+                <div key={image.image_id} className="bg-white p-4 rounded-lg shadow mobile-card">
+                  <div className="flex space-x-3">
+                    {/* Image Preview */}
+                    <div className="flex-shrink-0">
+                      <div className="h-20 w-20 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden shadow-sm">
+                        <img
+                          src={getImagePreviewUrl(image)}
+                          alt={image.file_name}
+                          className="h-full w-full object-cover rounded-lg"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            console.error(
+                              "Dashboard preview image failed to load:",
+                              getImagePreviewUrl(image)
+                            );
+                            target.style.display = "none";
+                            target.nextElementSibling?.classList.remove(
+                              "hidden"
+                            );
+                          }}
+                        />
+                        <div className="hidden flex items-center justify-center h-full w-full bg-gradient-to-br from-gray-300 to-gray-400 rounded-lg">
+                          <div className="text-center">
+                            <svg
+                              className="h-6 w-6 text-gray-500 mb-1"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                            <span className="text-xs text-gray-500">
+                              {getDisplayPartNumber(image).slice(-4)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="mb-2">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {image.file_name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {image.file_type}
+                        </p>
+                      </div>
+                      
+                      <div className="mb-2">
+                        <p className="text-sm font-medium text-indigo-600">
+                          {getDisplayPartNumber(image)}
+                        </p>
+                        {image.part_name &&
+                          image.part_name !== image.part_number && (
+                            <p className="text-xs text-gray-500">
+                              {image.part_name}
+                            </p>
+                          )}
+                      </div>
+                      
+                      <div className="flex justify-between items-center text-xs text-gray-500 mb-3">
+                        <span>
+                          {new Date(image.captured_at).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                        <span>
+                          {image.image_size
+                            ? `${(image.image_size / (1024 * 1024)).toFixed(1)} MB`
+                            : "Unknown"}
+                        </span>
+                      </div>
+                      
+                      {/* Actions */}
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => onViewImage(image.image_id)}
+                          className="flex-1 text-center px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => onDownloadImage(image)}
+                          className="flex-1 text-center px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100"
+                        >
+                          Download
+                        </button>
+                        <button
+                          onClick={() => onDeleteImage(image.image_id)}
+                          className="flex-1 text-center px-3 py-2 text-xs font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
       {tabImages.length > 0 && (

@@ -11,4 +11,121 @@
 body {
   color: rgb(var(--foreground-rgb));
   background-color: rgb(var(--background-rgb));
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* Responsive improvements */
+* {
+  box-sizing: border-box;
+}
+
+/* Ensure images are responsive */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Improve button touch targets on mobile */
+button, a {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+/* Mobile navigation improvements */
+@media (max-width: 640px) {
+  /* Show mobile navigation menu */
+  .mobile-nav-menu {
+    display: block;
+  }
+  
+  /* Hide desktop navigation */
+  .desktop-nav-menu {
+    display: none;
+  }
+  
+  /* Better spacing for mobile */
+  .mobile-spacing {
+    padding: 0.5rem 1rem;
+  }
+  
+  /* Stack elements vertically on mobile */
+  .mobile-stack {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  /* Full width buttons on mobile */
+  .mobile-full-width {
+    width: 100%;
+  }
+}
+
+/* Better text readability on mobile */
+@media (max-width: 767px) {
+  body {
+    font-size: 14px;
+  }
+  
+  /* Prevent horizontal scrolling */
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+  }
+  
+  /* Improve button spacing on mobile */
+  button {
+    padding: 0.75rem 1rem;
+  }
+  
+  /* Better table handling on mobile */
+  .mobile-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Improve card layouts on mobile */
+  .mobile-card {
+    margin: 0.5rem;
+    border-radius: 0.5rem;
+  }
+  
+  /* Better form layouts on mobile */
+  .mobile-form-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  /* Improve modal sizing on mobile */
+  .mobile-modal {
+    margin: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+}
+
+/* Tablet improvements */
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Better grid layouts for tablets */
+  .tablet-grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .tablet-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+  /* Larger touch targets */
+  button, a, input, select, textarea {
+    min-height: 48px;
+  }
+  
+  /* Remove hover effects on touch devices */
+  .hover-effects:hover {
+    transform: none;
+    box-shadow: none;
+  }
 }

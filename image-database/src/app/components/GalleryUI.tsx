@@ -82,55 +82,121 @@ interface GroupedGalleryUIProps {
 }
 
 // Navigation Component
-export const GroupedGalleryNavigation = ({ user }: { user: any }) => (
-  <nav className="bg-white shadow">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between h-16">
-        <div className="flex">
-          <div className="flex-shrink-0 flex items-center">
-            <Link href="/" className="text-2xl font-bold text-indigo-600">
-              ImageDB
-            </Link>
+export const GroupedGalleryNavigation = ({ user }: { user: any }) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  return (
+    <nav className="bg-white shadow">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex">
+            <div className="flex-shrink-0 flex items-center">
+              <Link href="/" className="text-xl sm:text-2xl font-bold text-indigo-600">
+                ImageDB
+              </Link>
+            </div>
+            {/* Desktop Navigation */}
+            <div className="hidden sm:ml-6 sm:flex sm:space-x-8 desktop-nav-menu">
+              <Link
+                href="/dashboard"
+                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/gallery"
+                className="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              >
+                Gallery
+              </Link>
+              <Link
+                href="/upload"
+                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              >
+                Upload
+              </Link>
+            </div>
           </div>
-          <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+          
+          {/* Desktop User Menu */}
+          <div className="hidden sm:flex items-center">
+            <div className="flex-shrink-0">
+              <div className="relative ml-3">
+                <div className="flex items-center space-x-4">
+                  <span className="text-gray-700 text-sm">
+                    {user?.fullName ||
+                      user?.emailAddresses[0]?.emailAddress ||
+                      "User"}
+                  </span>
+                  <UserButton afterSignOutUrl="/" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="flex items-center sm:hidden">
+            <UserButton afterSignOutUrl="/" />
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="ml-2 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+              aria-expanded="false"
+            >
+              <span className="sr-only">Open main menu</span>
+              {/* Menu icon */}
+              <svg
+                className={`${isMobileMenuOpen ? 'hidden' : 'block'} h-6 w-6`}
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              {/* Close icon */}
+              <svg
+                className={`${isMobileMenuOpen ? 'block' : 'hidden'} h-6 w-6`}
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile menu */}
+        <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} sm:hidden mobile-nav-menu`}>
+          <div className="pt-2 pb-3 space-y-1">
             <Link
               href="/dashboard"
-              className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              className="border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Dashboard
             </Link>
             <Link
               href="/gallery"
-              className="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              className="bg-indigo-50 border-indigo-500 text-indigo-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Gallery
             </Link>
             <Link
               href="/upload"
-              className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              className="border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Upload
             </Link>
           </div>
         </div>
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <div className="relative ml-3">
-              <div className="flex items-center space-x-4">
-                <span className="text-gray-700">
-                  {user?.fullName ||
-                    user?.emailAddresses[0]?.emailAddress ||
-                    "User"}
-                </span>
-                <UserButton afterSignOutUrl="/" />
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
-    </div>
-  </nav>
-);
+    </nav>
+  );
+};
 
 // Header Component
 export const GroupedGalleryHeader = ({
@@ -138,17 +204,17 @@ export const GroupedGalleryHeader = ({
 }: {
   onRefresh: () => void;
 }) => (
-  <div className="md:flex md:items-center md:justify-between mb-6">
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
     <div className="flex-1 min-w-0">
-      <h1 className="text-2xl font-bold text-gray-900">Parts Gallery</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Parts Gallery</h1>
       <p className="mt-1 text-sm text-gray-500">
         Browse images grouped by part number for easy comparison and management.
       </p>
     </div>
-    <div className="mt-4 md:mt-0 flex space-x-3">
+    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
       <button
         onClick={onRefresh}
-        className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
         <svg
           className="h-4 w-4 mr-2"
@@ -168,7 +234,7 @@ export const GroupedGalleryHeader = ({
       </button>
       <Link
         href="/upload"
-        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
         <svg
           className="h-4 w-4 mr-2"
@@ -206,13 +272,13 @@ export const GroupedGallerySearch = ({
 }) => (
   <div className="bg-white shadow rounded-lg mb-6">
     <div className="px-4 py-5 sm:p-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-        <div className="flex-1 min-w-0 max-w-md">
+      <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
+        <div className="flex-1 min-w-0 max-w-full md:max-w-md">
           <div className="relative">
             <input
               type="text"
               placeholder="Search by part number..."
-              className="block w-full pr-10 sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              className="block w-full pr-10 text-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               disabled={isLoading}
@@ -265,15 +331,15 @@ export const PartNumberGroupsView = ({
 }) => {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {[...Array(6)].map((_, index) => (
-          <div key={index} className="bg-white rounded-lg shadow animate-pulse">
-            <div className="p-6">
+          <div key={index} className="bg-white rounded-lg shadow animate-pulse mobile-card">
+            <div className="p-4 sm:p-6">
               <div className="h-6 bg-gray-300 rounded mb-4"></div>
               <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="h-16 bg-gray-200 rounded"></div>
-                <div className="h-16 bg-gray-200 rounded"></div>
-                <div className="h-16 bg-gray-200 rounded"></div>
+                <div className="h-12 sm:h-16 bg-gray-200 rounded"></div>
+                <div className="h-12 sm:h-16 bg-gray-200 rounded"></div>
+                <div className="h-12 sm:h-16 bg-gray-200 rounded"></div>
               </div>
               <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
               <div className="h-4 bg-gray-200 rounded w-1/2"></div>
@@ -312,24 +378,24 @@ export const PartNumberGroupsView = ({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
       {groupedImages.map((group) => (
         <div
           key={group.partNumber}
-          className={`bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer ${
+          className={`bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer mobile-card ${
             selectedPartNumber === group.partNumber
               ? "ring-2 ring-indigo-500"
               : ""
           }`}
           onClick={() => onPartNumberClick(group.partNumber)}
         >
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {/* Part Number Header */}
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate mr-2">
                 {group.partNumber}
               </h3>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 flex-shrink-0">
                 {group.totalImages} images
               </span>
             </div>
@@ -346,7 +412,7 @@ export const PartNumberGroupsView = ({
                   <img
                     src={generateImageUrl(image)}
                     alt={`${group.partNumber} - ${index + 1}`}
-                    className="w-full h-16 object-cover rounded"
+                    className="w-full h-12 sm:h-16 object-cover rounded"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.style.display = "none";
