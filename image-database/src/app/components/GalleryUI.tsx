@@ -71,6 +71,14 @@ interface GroupedGalleryUIProps {
   onNavigateImage: (direction: "prev" | "next") => void;
   currentImageIndex: number;
   totalImagesInSet: number;
+  // New props for batch operations
+  selectedImageIds: number[];
+  onToggleImageSelection: (id: number) => void;
+  onSelectAllImages: (images: ImageType[]) => void;
+  onDeselectAllImages: () => void;
+  onBatchDeleteImages: (ids: number[]) => void;
+  isSelectionMode: boolean;
+  onToggleSelectionMode: () => void;
 }
 
 // Navigation Component
@@ -406,123 +414,243 @@ export const PartImagesDetailView = ({
   onImageClick,
   onDownloadImage,
   generateImageUrl,
+  selectedImageIds,
+  onToggleImageSelection,
+  onSelectAllImages,
+  onDeselectAllImages,
+  onBatchDeleteImages,
+  isSelectionMode,
+  onToggleSelectionMode,
 }: {
   selectedGroup: GroupedImages;
   onBackClick: () => void;
   onImageClick: (id: number) => void;
   onDownloadImage: (image: ImageType) => void;
   generateImageUrl: (image: ImageType) => string;
-}) => (
-  <div>
-    {/* Back Button and Header */}
-    <div className="flex items-center mb-6">
-      <button
-        onClick={onBackClick}
-        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-      >
-        <svg
-          className="h-4 w-4 mr-2"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15 19l-7-7 7-7"
-          />
-        </svg>
-        Back to Parts
-      </button>
-      <div className="ml-4">
-        <h2 className="text-xl font-bold text-gray-900">
-          {selectedGroup.partNumber}
-        </h2>
-        <p className="text-sm text-gray-500">
-          {selectedGroup.totalImages} images
-        </p>
-      </div>
-    </div>
+  selectedImageIds: number[];
+  onToggleImageSelection: (id: number) => void;
+  onSelectAllImages: (images: ImageType[]) => void;
+  onDeselectAllImages: () => void;
+  onBatchDeleteImages: (ids: number[]) => void;
+  isSelectionMode: boolean;
+  onToggleSelectionMode: () => void;
+}) => {
+  const handleSelectAll = () => {
+    onSelectAllImages(selectedGroup.images);
+  };
 
-    {/* Images Grid */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-      {selectedGroup.images.map((image) => (
-        <div
-          key={image.id}
-          className="bg-white overflow-hidden shadow rounded-lg cursor-pointer transition duration-150 hover:shadow-lg transform hover:scale-105"
-        >
-          <div className="relative pb-[75%] bg-gray-200">
-            <img
-              src={generateImageUrl(image)}
-              alt={image.name}
-              className="absolute inset-0 w-full h-full object-cover"
-              onClick={() => onImageClick(image.id)}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = "none";
-                target.nextElementSibling?.classList.remove("hidden");
-              }}
-            />
-            <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400 hidden">
-              <div className="text-center">
-                <svg
-                  className="mx-auto h-8 w-8 text-gray-500 mb-2"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <span className="text-gray-500 text-xs">
-                  {selectedGroup.partNumber}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="px-4 py-3">
-            <h3
-              className="text-sm font-medium text-gray-900 truncate"
-              title={image.name}
+  const handleBatchDelete = () => {
+    if (selectedImageIds.length === 0) return;
+    
+    if (window.confirm(`Are you sure you want to delete ${selectedImageIds.length} selected images? This action cannot be undone.`)) {
+      onBatchDeleteImages(selectedImageIds);
+    }
+  };
+
+  return (
+    <div>
+      {/* Back Button and Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <button
+            onClick={onBackClick}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <svg
+              className="h-4 w-4 mr-2"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              {image.name}
-            </h3>
-            <p className="text-xs text-gray-500 mt-1">
-              {image.uploadDate} • {image.size}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+            Back to Parts
+          </button>
+          <div className="ml-4">
+            <h2 className="text-xl font-bold text-gray-900">
+              {selectedGroup.partNumber}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {selectedGroup.totalImages} images
+              {selectedImageIds.length > 0 && ` • ${selectedImageIds.length} selected`}
             </p>
-            <div className="mt-2 flex space-x-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDownloadImage(image);
-                }}
-                className="flex-1 inline-flex justify-center items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
-              >
-                Download
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onImageClick(image.id);
-                }}
-                className="flex-1 inline-flex justify-center items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700"
-              >
-                View
-              </button>
-            </div>
           </div>
         </div>
-      ))}
+
+        {/* Selection Mode Controls */}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={onToggleSelectionMode}
+            className={`inline-flex items-center px-3 py-2 border text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+              isSelectionMode
+                ? "border-red-300 text-red-700 bg-red-50 hover:bg-red-100"
+                : "border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
+            }`}
+          >
+            {isSelectionMode ? (
+              <>
+                <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Cancel Selection
+              </>
+            ) : (
+              <>
+                <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Select Images
+              </>
+            )}
+          </button>
+
+          {isSelectionMode && (
+            <>
+              <button
+                onClick={handleSelectAll}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Select All
+              </button>
+              
+              {selectedImageIds.length > 0 && (
+                <button
+                  onClick={onDeselectAllImages}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Deselect All
+                </button>
+              )}
+
+              {selectedImageIds.length > 0 && (
+                <button
+                  onClick={handleBatchDelete}
+                  className="inline-flex items-center px-3 py-2 border border-red-300 text-sm leading-4 font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete Selected ({selectedImageIds.length})
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Images Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        {selectedGroup.images.map((image) => {
+          const isSelected = selectedImageIds.includes(image.id);
+          
+          return (
+            <div
+              key={image.id}
+              className={`bg-white overflow-hidden shadow rounded-lg transition duration-150 hover:shadow-lg transform hover:scale-105 ${
+                isSelected ? 'ring-2 ring-indigo-500' : ''
+              }`}
+            >
+              <div className="relative pb-[75%] bg-gray-200">
+                {/* Selection Checkbox */}
+                {isSelectionMode && (
+                  <div className="absolute top-2 left-2 z-10">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        onToggleImageSelection(image.id);
+                      }}
+                      className="h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                    />
+                  </div>
+                )}
+                
+                <img
+                  src={generateImageUrl(image)}
+                  alt={image.name}
+                  className="absolute inset-0 w-full h-full object-cover cursor-pointer"
+                  onClick={() => {
+                    if (isSelectionMode) {
+                      onToggleImageSelection(image.id);
+                    } else {
+                      onImageClick(image.id);
+                    }
+                  }}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = "none";
+                    target.nextElementSibling?.classList.remove("hidden");
+                  }}
+                />
+                <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400 hidden">
+                  <div className="text-center">
+                    <svg
+                      className="mx-auto h-8 w-8 text-gray-500 mb-2"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                    <span className="text-gray-500 text-xs">
+                      {selectedGroup.partNumber}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="px-4 py-3">
+                <h3
+                  className="text-sm font-medium text-gray-900 truncate"
+                  title={image.name}
+                >
+                  {image.name}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {image.uploadDate} • {image.size}
+                </p>
+                {!isSelectionMode && (
+                  <div className="mt-2 flex space-x-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDownloadImage(image);
+                      }}
+                      className="flex-1 inline-flex justify-center items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Download
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onImageClick(image.id);
+                      }}
+                      className="flex-1 inline-flex justify-center items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700"
+                    >
+                      View
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Enhanced Image Detail Modal with Keyboard Navigation
 export const ImageDetailModal = ({

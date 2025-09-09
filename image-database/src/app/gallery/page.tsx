@@ -37,6 +37,10 @@ export default function Gallery() {
   const [currentImageSet, setCurrentImageSet] = useState<ImageType[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
+  // Batch selection state
+  const [selectedImageIds, setSelectedImageIds] = useState<number[]>([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+
   // Helper function to extract part number from various sources
   const extractPartNumber = (img: any): string => {
     // Priority order: part_number -> part_name -> extract from file_path -> extract from notes -> fallback
@@ -187,6 +191,26 @@ export default function Gallery() {
     } catch (error) {
       console.error("Error deleting image:", error);
       setApiError("Failed to delete image");
+      return null;
+    }
+  };
+
+  const batchDeleteImages = async (ids: number[]) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/images/batch-delete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ids }),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Error batch deleting images:", error);
+      setApiError("Failed to delete images");
       return null;
     }
   };
@@ -469,6 +493,44 @@ export default function Gallery() {
 
   const handleBackClick = () => {
     setSelectedPartNumber(null);
+    // Reset selection when going back to parts view
+    setSelectedImageIds([]);
+    setIsSelectionMode(false);
+  };
+
+  // Batch selection handlers
+  const handleToggleImageSelection = (id: number) => {
+    setSelectedImageIds(prev => 
+      prev.includes(id) 
+        ? prev.filter(imageId => imageId !== id)
+        : [...prev, id]
+    );
+  };
+
+  const handleSelectAllImages = (images: ImageType[]) => {
+    const allIds = images.map(img => img.id);
+    setSelectedImageIds(allIds);
+  };
+
+  const handleDeselectAllImages = () => {
+    setSelectedImageIds([]);
+  };
+
+  const handleBatchDeleteImages = async (ids: number[]) => {
+    const result = await batchDeleteImages(ids);
+    if (result) {
+      loadImages(); // Refresh after deletion
+      setSelectedImageIds([]);
+      setIsSelectionMode(false);
+    }
+  };
+
+  const handleToggleSelectionMode = () => {
+    setIsSelectionMode(prev => !prev);
+    if (isSelectionMode) {
+      // Clear selections when exiting selection mode
+      setSelectedImageIds([]);
+    }
   };
 
   // Navigate between images in modal
@@ -692,6 +754,13 @@ export default function Gallery() {
             onImageClick={handleImageClick}
             onDownloadImage={downloadImage}
             generateImageUrl={generateImageUrl}
+            selectedImageIds={selectedImageIds}
+            onToggleImageSelection={handleToggleImageSelection}
+            onSelectAllImages={handleSelectAllImages}
+            onDeselectAllImages={handleDeselectAllImages}
+            onBatchDeleteImages={handleBatchDeleteImages}
+            isSelectionMode={isSelectionMode}
+            onToggleSelectionMode={handleToggleSelectionMode}
           />
         ) : (
           // Part Number Groups View
